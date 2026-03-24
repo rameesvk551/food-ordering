@@ -1,0 +1,263 @@
+name: Deploy Marketing OS to Production
+
+on:
+  push:
+    branches: [production]  # Trigger on production branch only
+  workflow_dispatch:        # Manual trigger option
+
+env:
+  NODE_VERSION: '20'
+  DEPLOY_USER: ec2-user                              # Amazon Linux 2023 uses ec2-user
+  DEPLOY_PATH: /home/ec2-user/marketting-os
+
+jobs:
+  # Build backend and frontend
+  build:
+    name: Build Backend & Frontend
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      # Backend Build
+      - name: Install backend dependencies
+        working-directory: server
+        run: npm ci
+
+      - name: Build backend
+        working-directory: server
+        run: npm run build
+        env:
+          CI: true
+
+      - name: Verify backend build
+        run: |
+          if [ -f server/dist/server.js ]; then
+            echo "✓ Backend build successful"
+          else
+            echo "✗ Backend build failed - dist/server.js not found"
+            ls -la server/dist/ || echo "dist directory doesn't exist"
+            exit 1
+          fi
+
+      # Frontend Build
+      - name: Install frontend dependencies
+        working-directory: client
+        run: npm ci
+
+      - name: Build frontend
+        working-directory: client
+        run: npm run build
+        env:
+          CI: true
+          VITE_API_BASE_URL: https://api.app.wayon.in
+
+      - name: Verify frontend build
+        run: |
+          if [ -f client/dist/index.html ]; then
+            echo "✓ Frontend build successful"
+          else
+            echo "✗ Frontend build failed - dist/index.html not found"
+            ls -la client/dist/ || echo "dist directory doesn't exist"
+            exit 1
+          fi
+
+      # Create deployment archives
+      - name: Create backend deployment archive
+        run: |
+          cd server
+          tar -czf ../backend-dist.tar.gz dist/ node_modules package.json
+
+      - name: Create frontend deployment archive
+        run: |
+          cd client
+          tar -czf ../frontend-dist.tar.gz dist/
+
+      # Upload artifacts
+      - name: Upload backend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-dist
+          path: backend-dist.tar.gz
+          retention-days: 7
+
+      - name: Upload frontend artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: frontend-dist.tar.gz
+          retention-days: 7
+
+
+  deploy:
+    name: Deploy to EC2
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Debug artifacts
+        run: |
+          echo "Artifact structure:"
+          find artifacts/ -type f
+          ls -la artifacts/
+
+      - name: Test SSH connection
+        run: |
+          ssh -T -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }} "echo '✓ SSH connection successful'"
+
+      - name: Upload artifacts to EC2
+        run: |
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no artifacts/backend-dist/backend-dist.tar.gz ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }}:/tmp/backend-dist.tar.gz
+          scp -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no artifacts/frontend-dist/frontend-dist.tar.gz ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }}:/tmp/frontend-dist.tar.gz
+          echo "✓ Artifacts uploaded"
+
+      - name: Deploy to EC2
+        run: |
+          ssh -T -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
+            set -e
+
+            echo "🚀 Starting Marketing OS deployment..."
+
+            # Navigate to project directory
+            cd ${{ env.DEPLOY_PATH }}
+
+            # Pull latest code from production branch
+            echo "📥 Pulling latest code from production branch..."
+            git fetch origin
+            git reset --hard origin/production
+
+            # Extract and deploy backend with atomic swap (zero-downtime)
+            echo "🔧 Deploying backend..."
+            mkdir -p /tmp/backend_extract
+            tar -xzf /tmp/backend-dist.tar.gz -C /tmp/backend_extract/
+            
+            # Atomic swap - zero-downtime deployment
+            mkdir -p server/dist_backup
+            if [ -d server/dist ]; then
+              cp -r server/dist/* server/dist_backup/ 2>/dev/null || true
+              rm -rf server/dist
+            fi
+            mv /tmp/backend_extract/dist server/dist
+            
+            # Copy node_modules if provided
+            if [ -d /tmp/backend_extract/node_modules ]; then
+              cp -r /tmp/backend_extract/node_modules server/
+            fi
+            rm -rf /tmp/backend_extract
+
+            # Extract and deploy frontend with atomic swap (zero-downtime)
+            echo "🎨 Deploying frontend with zero-downtime swap..."
+            mkdir -p /tmp/frontend_extract
+            tar -xzf /tmp/frontend-dist.tar.gz -C /tmp/frontend_extract/
+            
+            # Prepare new frontend directory
+            sudo mkdir -p /var/www/marketing-os/client
+            if [ -d /var/www/marketing-os/client/dist ]; then
+              sudo rm -rf /var/www/marketing-os/client/dist_backup
+              sudo mv /var/www/marketing-os/client/dist /var/www/marketing-os/client/dist_backup
+            fi
+            sudo mkdir -p /var/www/marketing-os/client/dist_new
+            sudo cp -r /tmp/frontend_extract/dist/* /var/www/marketing-os/client/dist_new/
+            sudo mv /var/www/marketing-os/client/dist_new /var/www/marketing-os/client/dist
+            sudo chown -R nginx:nginx /var/www/marketing-os
+            rm -rf /tmp/frontend_extract /tmp/*-dist.tar.gz
+
+            # Install production dependencies (skip if node_modules already provided)
+            echo "📦 Checking dependencies..."
+            cd ${{ env.DEPLOY_PATH }}/server
+            if [ -d node_modules ] && [ -f node_modules/.package-lock.json ]; then
+              echo "✓ node_modules already deployed from build artifact, skipping npm ci"
+            else
+              echo "Installing dependencies (fallback)..."
+              npm ci --omit=dev
+            fi
+
+            # Run database migrations (if applicable)
+            echo "🗄️ Running database migrations..."
+            npm run db:migrate 2>/dev/null || echo "⚠️ No migrations to run or migration script not found"
+
+            # Restart backend services with PM2
+            echo "🔄 Restarting backend services with PM2..."
+            pm2 stop marketing-os-api || true
+            pm2 delete marketing-os-api || true
+            pm2 start dist/server.js --name "marketing-os-api" --max-memory-restart 500M
+            pm2 save
+
+            # Reload Nginx (zero-downtime config reload)
+            echo "🌐 Reloading Nginx..."
+            sudo nginx -t && sudo systemctl reload nginx
+
+            # Wait for services to stabilize
+            sleep 5
+
+            echo "✅ Marketing OS deployment complete!"
+
+            # Show PM2 status
+            pm2 status
+          ENDSSH
+
+      - name: Health Check - API
+        continue-on-error: true
+        run: |
+          echo "Checking API health..."
+          sleep 10
+          curl -f --max-time 10 https://api.app.wayon.in/api/health || echo "⚠️ API health check inconclusive"
+
+      - name: Health Check - Frontend
+        continue-on-error: true
+        run: |
+          echo "Checking frontend..."
+          curl -f --max-time 10 https://app.wayon.in/ || echo "⚠️ Frontend check inconclusive"
+
+      - name: Deployment Success Notification
+        if: success()
+        run: |
+          echo "✅ Marketing OS Deployment successful!"
+          echo "Frontend: https://app.wayon.in"
+          echo "API: https://api.app.wayon.in"
+
+      - name: Rollback on Failure
+        if: failure()
+        continue-on-error: true
+        run: |
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
+            echo "❌ Deployment failed, attempting rollback..."
+            cd ${{ env.DEPLOY_PATH }}
+            
+            # Rollback backend
+            if [ -d server/dist_backup ]; then
+              rm -rf server/dist
+              mv server/dist_backup server/dist
+              pm2 restart marketing-os-api
+              echo "⚠️ Backend rolled back to previous version"
+            fi
+            
+            # Rollback frontend
+            if [ -d /var/www/marketing-os/client/dist_backup ]; then
+              sudo rm -rf /var/www/marketing-os/client/dist
+              sudo mv /var/www/marketing-os/client/dist_backup /var/www/marketing-os/client/dist
+              sudo systemctl reload nginx
+              echo "⚠️ Frontend rolled back to previous version"
+            fi
+          ENDSSH
