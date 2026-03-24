@@ -1,0 +1,21 @@
+import { Router } from 'express';
+import { authenticate } from '../middleware/auth';
+import { validateTenant } from '../middleware/tenantValidation';
+import {
+  verifyWebhook,
+  handleWebhook,
+  connectWhatsApp,
+  getWhatsAppStatus,
+} from '../controllers/whatsapp.controller';
+
+const router = Router();
+
+// Webhook routes (no auth - called by WhatsApp)
+router.get('/webhook', verifyWebhook);
+router.post('/webhook', handleWebhook);
+
+// Protected routes
+router.post('/connect', authenticate, validateTenant, connectWhatsApp);
+router.get('/status', authenticate, validateTenant, getWhatsAppStatus);
+
+export default router;
