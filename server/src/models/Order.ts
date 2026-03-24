@@ -19,6 +19,9 @@ export interface IOrder extends Document {
   source: OrderSource;
   customerName: string;
   customerPhone: string;
+  deliveryMode?: 'delivery' | 'pickup';
+  paymentMethod?: 'cod' | 'online';
+  paymentStatus?: 'pending' | 'paid' | 'failed';
   createdAt: Date;
   updatedAt: Date;
 }
@@ -51,6 +54,9 @@ const orderSchema = new Schema<IOrder>(
     },
     customerName: { type: String, default: '' },
     customerPhone: { type: String, default: '' },
+    deliveryMode: { type: String, enum: ['delivery', 'pickup'] },
+    paymentMethod: { type: String, enum: ['cod', 'online'] },
+    paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
   },
   { timestamps: true }
 );

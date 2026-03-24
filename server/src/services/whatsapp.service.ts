@@ -33,6 +33,255 @@ export const sendWhatsAppMessage = async (
   }
 };
 
+export const sendInteractiveButtons = async (
+  phoneNumber: string,
+  body: string,
+  buttons: { id: string; title: string }[],
+  phoneNumberId: string,
+  accessToken: string,
+  header?: string,
+  footer?: string
+): Promise<void> => {
+  try {
+    const decryptedToken = decrypt(accessToken);
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'interactive',
+        interactive: {
+          type: 'button',
+          header: header ? { type: 'text', text: header } : undefined,
+          body: { text: body },
+          footer: footer ? { text: footer } : undefined,
+          action: {
+            buttons: buttons.map((b) => ({
+              type: 'reply',
+              reply: { id: b.id, title: b.title },
+            })),
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send buttons error:', error.response?.data || error.message);
+    throw new Error('Failed to send WhatsApp buttons');
+  }
+};
+
+export const sendListMessage = async (
+  phoneNumber: string,
+  body: string,
+  buttonText: string,
+  sections: { title: string; rows: { id: string; title: string; description?: string }[] }[],
+  phoneNumberId: string,
+  accessToken: string,
+  header?: string,
+  footer?: string
+): Promise<void> => {
+  try {
+    const decryptedToken = decrypt(accessToken);
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'interactive',
+        interactive: {
+          type: 'list',
+          header: header ? { type: 'text', text: header } : undefined,
+          body: { text: body },
+          footer: footer ? { text: footer } : undefined,
+          action: {
+            button: buttonText,
+            sections: sections.map((s) => ({
+              title: s.title,
+              rows: s.rows.map((r) => ({
+                id: r.id,
+                title: r.title,
+                description: r.description,
+              })),
+            })),
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send list error:', error.response?.data || error.message);
+    throw new Error('Failed to send WhatsApp list');
+  }
+};
+
+export const sendLocationRequest = async (
+  phoneNumber: string,
+  body: string,
+  phoneNumberId: string,
+  accessToken: string
+): Promise<void> => {
+  try {
+    const decryptedToken = decrypt(accessToken);
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'interactive',
+        interactive: {
+          type: 'location_request_message',
+          body: { text: body },
+          action: { name: 'send_location' },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send location request error:', error.response?.data || error.message);
+    throw new Error('Failed to send location request');
+  }
+};
+
+export const sendProductListMessage = async (
+  phoneNumber: string,
+  catalogId: string,
+  body: string,
+  sections: { title: string; product_items: { product_retailer_id: string }[] }[],
+  phoneNumberId: string,
+  accessToken: string,
+  header?: string,
+  footer?: string
+): Promise<void> => {
+  try {
+    const decryptedToken = decrypt(accessToken);
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'interactive',
+        interactive: {
+          type: 'product_list',
+          header: header ? { type: 'text', text: header } : undefined,
+          body: { text: body },
+          footer: footer ? { text: footer } : undefined,
+          action: {
+            catalog_id: catalogId,
+            sections: sections,
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send product list error:', error.response?.data || error.message);
+    throw new Error('Failed to send product list');
+  }
+};
+
+export const sendOrderDetailsMessage = async (
+  phoneNumber: string,
+  order: any,
+  phoneNumberId: string,
+  accessToken: string
+): Promise<void> => {
+  try {
+    const decryptedToken = decrypt(accessToken);
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'interactive',
+        interactive: {
+          type: 'order_details',
+          body: { text: 'Confirm your order and pay' },
+          action: {
+            name: 'review_and_pay',
+            parameters: {
+              reference_id: order._id.toString(),
+              type: 'physical-goods',
+              payment_type: 'upi',
+              payment_settings: [
+                {
+                  type: 'upi_intent',
+                  upi_intent: {
+                    merchant_name: 'Spice Garden Restaurant',
+                  },
+                },
+              ],
+              order: {
+                status: 'pending',
+                catalog_id: order.restaurantId.whatsappCatalogId || '',
+                items: order.items.map((i: any) => ({
+                  retailer_id: i.productId,
+                  name: i.name,
+                  amount: {
+                    value: i.price * 100, // Smallest unit (cents/paise)
+                    offset: 100,
+                  },
+                  quantity: i.quantity,
+                })),
+                subtotal: {
+                  value: order.totalAmount * 100,
+                  offset: 100,
+                },
+                tax: {
+                  value: 0,
+                  offset: 100,
+                },
+                shipping: {
+                  value: 0,
+                  offset: 100,
+                },
+                discount: {
+                  value: 0,
+                  offset: 100,
+                },
+                total_amount: {
+                  value: order.totalAmount * 100,
+                  offset: 100,
+                  currency: 'INR',
+                },
+              },
+            },
+          },
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send order details error:', error.response?.data || error.message);
+    throw new Error('Failed to send order details');
+  }
+};
+
 export const formatMenuMessage = (restaurant: IRestaurant): string => {
   let message = `🍽️ *${restaurant.name} - Menu*\n\n`;
 
@@ -58,7 +307,7 @@ export const parseOrderFromMessage = (
   message: string,
   restaurant: IRestaurant
 ): { items: any[]; totalAmount: number } | null => {
-  const orderMatch = message.toLowerCase().match    (/order\s+(\d+)\s*x\s*(\d+)/g);
+  const orderMatch = message.toLowerCase().match(/order\s+(\d+)\s*x\s*(\d+)/g);
 
   if (!orderMatch) return null;
 
@@ -104,3 +353,4 @@ export const getHelpMessage = (restaurantName: string): string => {
     `Example: *order 1 x 2* orders 2 of item #1`
   );
 };
+

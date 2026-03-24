@@ -5,6 +5,8 @@ export interface ICustomer extends Document {
   phoneNumber: string;
   restaurantId: mongoose.Types.ObjectId;
   whatsappUserId: string;
+  whatsappFlowState: string;
+  whatsappCart: any[];
   pincode: string;
   city: string;
   district: string;
@@ -23,6 +25,8 @@ const customerSchema = new Schema<ICustomer>(
     phoneNumber: { type: String, required: true },
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
     whatsappUserId: { type: String, default: '' },
+    whatsappFlowState: { type: String, default: 'idle' },
+    whatsappCart: { type: Array, default: [] },
     pincode: { type: String, default: '' },
     city: { type: String, default: '' },
     district: { type: String, default: '' },
