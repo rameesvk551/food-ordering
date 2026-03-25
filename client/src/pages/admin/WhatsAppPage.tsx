@@ -27,7 +27,6 @@ const WhatsAppPage = () => {
   const [embeddedConfig, setEmbeddedConfig] = useState<any>(null);
   const [sdkReady, setSdkReady] = useState(false);
   const [sdkLoading, setSdkLoading] = useState(false);
-  const [embeddedCompleting, setEmbeddedCompleting] = useState(false);
   const [embeddedStep, setEmbeddedStep] = useState<'idle' | 'facebook' | 'completing' | 'done'>('idle');
 
   const fetchStatus = async () => {
@@ -119,10 +118,10 @@ const WhatsAppPage = () => {
 
           if (code) {
             setEmbeddedStep('completing');
-            setEmbeddedCompleting(true);
+
 
             try {
-              const result = await api.post('/whatsapp/embedded/complete', { code });
+              await api.post('/whatsapp/embedded/complete', { code });
               setEmbeddedStep('done');
               showToast('WhatsApp connected successfully via Embedded Signup!');
               fetchStatus();
@@ -130,7 +129,7 @@ const WhatsAppPage = () => {
               showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
               setEmbeddedStep('idle');
             } finally {
-              setEmbeddedCompleting(false);
+              // done
             }
           } else {
             showToast('Facebook login succeeded but no authorization code was returned.', 'error');
