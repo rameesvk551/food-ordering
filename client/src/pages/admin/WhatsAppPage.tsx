@@ -41,15 +41,22 @@ const WhatsAppPage = () => {
   };
 
   const fetchEmbeddedConfig = async () => {
+    setSdkLoading(true);
     try {
       const res = await api.get('/whatsapp/embedded/config');
       const data = res.data?.data;
       if (data?.appId) {
         setEmbeddedConfig(data);
         loadFacebookSDK(data.appId);
+      } else {
+        console.warn('[WhatsAppPage] No appId received from server.');
       }
-    } catch {
-      // Embedded signup not configured — that's OK, manual form is the fallback
+    } catch (err: any) {
+      console.error('[WhatsAppPage] Error fetching embedded config:', err);
+      // Optional: Inform the user why the quick-connect is missing
+      // showToast('Embedded signup configuration could not be loaded.', 'warning');
+    } finally {
+      setSdkLoading(false);
     }
   };
 
@@ -227,7 +234,7 @@ const WhatsAppPage = () => {
       </div>
 
       {/* ── Embedded Signup Card (Primary) ── */}
-      {embeddedConfig?.appId && (
+      {embeddedConfig?.appId ? (
         <div className="bg-white rounded-2xl border-2 border-blue-200 shadow-sm p-6 mb-6">
           <div className="flex items-center gap-3 mb-4">
             <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
@@ -287,6 +294,24 @@ const WhatsAppPage = () => {
               </Button>
             </div>
           )}
+        </div>
+      ) : sdkLoading ? (
+        <div className="bg-white rounded-2xl border border-border animate-pulse shadow-sm p-6 mb-6">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-xl bg-gray-100" />
+            <div className="flex-1 space-y-2">
+              <div className="h-4 bg-gray-100 rounded w-1/3" />
+              <div className="h-3 bg-gray-100 rounded w-1/2" />
+            </div>
+          </div>
+          <div className="h-12 bg-gray-100 rounded-xl w-full" />
+        </div>
+      ) : (
+        <div className="bg-surface-secondary rounded-2xl border border-dashed border-border p-6 mb-6">
+           <div className="flex items-center gap-3 text-text-muted">
+             <Zap className="w-5 h-5" />
+             <p className="text-xs">Quick Connect is unavailable. Please check backend connection to Partner API.</p>
+           </div>
         </div>
       )}
 
