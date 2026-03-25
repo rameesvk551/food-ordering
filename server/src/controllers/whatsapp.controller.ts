@@ -546,13 +546,22 @@ export const getWhatsAppStatus = async (req: AuthRequest, res: Response): Promis
 // GET /whatsapp/embedded/config
 export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
-    const user = await User.findById(req.user!.userId).select('email');
-    if (!user?.email) {
-      res.status(400).json({ error: 'User email required for Marketing OS auth.' });
+    const user = await User.findById(req.user!.userId).select('email name');
+    const restaurant = await Restaurant.findById(req.user!.restaurantId);
+
+    if (!user?.email || !restaurant) {
+      res.status(400).json({ error: 'User email or restaurant not found for Marketing OS auth.' });
       return;
     }
 
-    const token = await loginToMarketingOs(user.email);
+    // Provision client if not exists and get token
+    const provisionResult = await provisionClientInMarketingOs({
+      restaurantName: restaurant.name,
+      userName: user.name || restaurant.name,
+      email: user.email,
+    });
+
+    const token = provisionResult.token || (await loginToMarketingOs(user.email));
     if (!token) {
       res.status(501).json({ error: 'Failed to authenticate with Marketing OS.' });
       return;
@@ -566,6 +575,7 @@ export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promis
 
     res.json({ data: config });
   } catch (error) {
+    console.error('[getEmbeddedConfig] Error:', error);
     res.status(500).json({ error: 'Failed to get embedded signup config.' });
   }
 };
