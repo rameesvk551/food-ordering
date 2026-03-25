@@ -1,14 +1,14 @@
-name: Deploy Marketing OS to Production
+name: Deploy Food Ordering to Production
 
 on:
   push:
-    branches: [production]  # Trigger on production branch only
-  workflow_dispatch:        # Manual trigger option
+    branches: [main]  # Trigger on main branch
+  workflow_dispatch:  # Manual trigger option
 
 env:
   NODE_VERSION: '20'
   DEPLOY_USER: ec2-user                              # Amazon Linux 2023 uses ec2-user
-  DEPLOY_PATH: /home/ec2-user/marketting-os
+  DEPLOY_PATH: /home/ec2-user/food-ordering
 
 jobs:
   # Build backend and frontend
@@ -38,7 +38,7 @@ jobs:
 
       - name: Verify backend build
         run: |
-          if [ -f server/dist/server.js ]; then
+          if [ -f server/dist/server.js ] || [ -f server/dist/index.js ] || [ -f server/dist/main.js ]; then
             echo "✓ Backend build successful"
           else
             echo "✗ Backend build failed - dist/server.js not found"
@@ -56,7 +56,7 @@ jobs:
         run: npm run build
         env:
           CI: true
-          VITE_API_BASE_URL: https://api.app.wayon.in
+          VITE_API_BASE_URL: https://api.food.wayon.in
 
       - name: Verify frontend build
         run: |
@@ -72,8 +72,8 @@ jobs:
       - name: Create backend deployment archive
         run: |
           cd server
-          tar -czf ../backend-dist.tar.gz dist/ node_modules package.json
-
+          tar -czf ../backend-dist.tar.gz dist/ node_modules package.json ecosystem.config.js
+        
       - name: Create frontend deployment archive
         run: |
           cd client
@@ -116,12 +116,6 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts 2>/dev/null || true
 
-      - name: Debug artifacts
-        run: |
-          echo "Artifact structure:"
-          find artifacts/ -type f
-          ls -la artifacts/
-
       - name: Test SSH connection
         run: |
           ssh -T -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }} "echo '✓ SSH connection successful'"
@@ -137,28 +131,28 @@ jobs:
           ssh -T -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${{ env.DEPLOY_USER }}@${{ secrets.EC2_HOST }} << 'ENDSSH'
             set -e
 
-            echo "🚀 Starting Marketing OS deployment..."
+            echo "🚀 Starting Food Ordering deployment..."
 
             # Navigate to project directory
+            mkdir -p ${{ env.DEPLOY_PATH }}
             cd ${{ env.DEPLOY_PATH }}
-
-            # Pull latest code from production branch
-            echo "📥 Pulling latest code from production branch..."
-            git fetch origin
-            git reset --hard origin/production
 
             # Extract and deploy backend with atomic swap (zero-downtime)
             echo "🔧 Deploying backend..."
             mkdir -p /tmp/backend_extract
             tar -xzf /tmp/backend-dist.tar.gz -C /tmp/backend_extract/
             
-            # Atomic swap - zero-downtime deployment
+            # Atomic swap - zero-downtime deployment for backend
             mkdir -p server/dist_backup
             if [ -d server/dist ]; then
               cp -r server/dist/* server/dist_backup/ 2>/dev/null || true
               rm -rf server/dist
             fi
+            
+            mkdir -p server
             mv /tmp/backend_extract/dist server/dist
+            cp /tmp/backend_extract/package.json server/package.json 2>/dev/null || true
+            cp /tmp/backend_extract/ecosystem.config.js server/ecosystem.config.js 2>/dev/null || true
             
             # Copy node_modules if provided
             if [ -d /tmp/backend_extract/node_modules ]; then
@@ -172,15 +166,15 @@ jobs:
             tar -xzf /tmp/frontend-dist.tar.gz -C /tmp/frontend_extract/
             
             # Prepare new frontend directory
-            sudo mkdir -p /var/www/marketing-os/client
-            if [ -d /var/www/marketing-os/client/dist ]; then
-              sudo rm -rf /var/www/marketing-os/client/dist_backup
-              sudo mv /var/www/marketing-os/client/dist /var/www/marketing-os/client/dist_backup
+            mkdir -p client/dist_backup
+            if [ -d client/dist ]; then
+              rm -rf client/dist_backup/* 2>/dev/null || true
+              mv client/dist client/dist_backup_tmp && mv client/dist_backup_tmp/* client/dist_backup/ 2>/dev/null || true
             fi
-            sudo mkdir -p /var/www/marketing-os/client/dist_new
-            sudo cp -r /tmp/frontend_extract/dist/* /var/www/marketing-os/client/dist_new/
-            sudo mv /var/www/marketing-os/client/dist_new /var/www/marketing-os/client/dist
-            sudo chown -R nginx:nginx /var/www/marketing-os
+            
+            mkdir -p client
+            mv /tmp/frontend_extract/dist client/dist
+            
             rm -rf /tmp/frontend_extract /tmp/*-dist.tar.gz
 
             # Install production dependencies (skip if node_modules already provided)
@@ -193,15 +187,10 @@ jobs:
               npm ci --omit=dev
             fi
 
-            # Run database migrations (if applicable)
-            echo "🗄️ Running database migrations..."
-            npm run db:migrate 2>/dev/null || echo "⚠️ No migrations to run or migration script not found"
-
             # Restart backend services with PM2
             echo "🔄 Restarting backend services with PM2..."
-            pm2 stop marketing-os-api || true
-            pm2 delete marketing-os-api || true
-            pm2 start dist/server.js --name "marketing-os-api" --max-memory-restart 500M
+            # Try to restart the existing process, or start a new one if it doesn't exist
+            pm2 reload food-ordering-server || pm2 start ecosystem.config.js --env production
             pm2 save
 
             # Reload Nginx (zero-downtime config reload)
@@ -211,31 +200,24 @@ jobs:
             # Wait for services to stabilize
             sleep 5
 
-            echo "✅ Marketing OS deployment complete!"
+            echo "✅ Food Ordering deployment complete!"
 
             # Show PM2 status
             pm2 status
           ENDSSH
 
-      - name: Health Check - API
-        continue-on-error: true
-        run: |
-          echo "Checking API health..."
-          sleep 10
-          curl -f --max-time 10 https://api.app.wayon.in/api/health || echo "⚠️ API health check inconclusive"
-
       - name: Health Check - Frontend
         continue-on-error: true
         run: |
           echo "Checking frontend..."
-          curl -f --max-time 10 https://app.wayon.in/ || echo "⚠️ Frontend check inconclusive"
+          curl -f --max-time 10 https://food.wayon.in/ || echo "⚠️ Frontend check inconclusive"
 
       - name: Deployment Success Notification
         if: success()
         run: |
-          echo "✅ Marketing OS Deployment successful!"
-          echo "Frontend: https://app.wayon.in"
-          echo "API: https://api.app.wayon.in"
+          echo "✅ Food Ordering Deployment successful!"
+          echo "Frontend: https://food.wayon.in"
+          echo "API: https://api.food.wayon.in"
 
       - name: Rollback on Failure
         if: failure()
@@ -249,15 +231,15 @@ jobs:
             if [ -d server/dist_backup ]; then
               rm -rf server/dist
               mv server/dist_backup server/dist
-              pm2 restart marketing-os-api
+              pm2 reload food-ordering-server || true
               echo "⚠️ Backend rolled back to previous version"
             fi
             
             # Rollback frontend
-            if [ -d /var/www/marketing-os/client/dist_backup ]; then
-              sudo rm -rf /var/www/marketing-os/client/dist
-              sudo mv /var/www/marketing-os/client/dist_backup /var/www/marketing-os/client/dist
-              sudo systemctl reload nginx
+            if [ -d client/dist_backup ]; then
+              rm -rf client/dist
+              mv client/dist_backup client/dist
+              sudo systemctl reload nginx || true
               echo "⚠️ Frontend rolled back to previous version"
             fi
           ENDSSH
