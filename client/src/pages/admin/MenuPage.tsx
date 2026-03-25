@@ -5,7 +5,7 @@ import Input from '../../components/ui/Input';
 import Modal from '../../components/ui/Modal';
 import { useToast } from '../../components/ui/Toast';
 import { MenuCardSkeleton } from '../../components/ui/Skeleton';
-import { Plus, Pencil, Trash2, FolderPlus, UtensilsCrossed, Upload, Image as ImageIcon, X } from 'lucide-react';
+import { Plus, Pencil, Trash2, FolderPlus, UtensilsCrossed, Upload, X } from 'lucide-react';
 import { uploadImage } from '../../services/api';
 
 interface MenuItem {

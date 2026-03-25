@@ -5,6 +5,13 @@ import { Order } from '../models/Order';
 import { env } from '../config/env';
 import { encrypt } from '../utils/encryption';
 import { AuthRequest } from '../middleware/auth';
+import { User } from '../models/User';
+import {
+  provisionClientInMarketingOs,
+  loginToMarketingOs,
+  getMarketingOsEmbeddedConfig,
+  completeMarketingOsEmbeddedSignup,
+} from '../services/marketing-os.service';
 import {
   sendWhatsAppMessage,
   sendInteractiveButtons,
@@ -475,14 +482,33 @@ export const connectWhatsApp = async (req: AuthRequest, res: Response): Promise<
 
     const encryptedToken = encrypt(accessToken);
 
-    await Restaurant.findByIdAndUpdate(req.user!.restaurantId, {
+    const restaurant = await Restaurant.findByIdAndUpdate(req.user!.restaurantId, {
       accessToken: encryptedToken,
       whatsappPhoneNumberId: phoneNumberId,
       whatsappBusinessAccountId: businessAccountId,
       whatsappCatalogId: catalogId,
-    });
+    }, { new: true });
 
-    res.json({ message: 'WhatsApp connected successfully.' });
+    const user = await User.findById(req.user!.userId).select('name email');
+
+    let marketingOsSync: any = {
+      attempted: false,
+      provisioned: false,
+      alreadyExists: false,
+    };
+
+    if (restaurant && user?.email) {
+      marketingOsSync = await provisionClientInMarketingOs({
+        restaurantName: restaurant.name,
+        userName: user.name || restaurant.name,
+        email: user.email,
+      });
+    }
+
+    res.json({
+      message: 'WhatsApp connected successfully.',
+      marketingOsSync,
+    });
   } catch (error) {
     res.status(500).json({ error: 'Failed to connect WhatsApp.' });
   }
@@ -510,5 +536,105 @@ export const getWhatsAppStatus = async (req: AuthRequest, res: Response): Promis
 
   } catch (error) {
     res.status(500).json({ error: 'Failed to get WhatsApp status.' });
+  }
+};
+
+// ────────────────────────────────────────────
+// Embedded Signup — Config + Complete (Proxied via Marketing OS)
+// ────────────────────────────────────────────
+
+// GET /whatsapp/embedded/config
+export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const user = await User.findById(req.user!.userId).select('email');
+    if (!user?.email) {
+      res.status(400).json({ error: 'User email required for Marketing OS auth.' });
+      return;
+    }
+
+    const token = await loginToMarketingOs(user.email);
+    if (!token) {
+      res.status(501).json({ error: 'Failed to authenticate with Marketing OS.' });
+      return;
+    }
+
+    const config = await getMarketingOsEmbeddedConfig(token);
+    if (!config) {
+      res.status(501).json({ error: 'Failed to get Embedded Signup config from Marketing OS.' });
+      return;
+    }
+
+    res.json({ data: config });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get embedded signup config.' });
+  }
+};
+
+// POST /whatsapp/embedded/complete
+export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): Promise<void> => {
+  try {
+    const { code } = req.body;
+
+    if (!code) {
+      res.status(400).json({ error: 'Authorization code is required.' });
+      return;
+    }
+
+    const user = await User.findById(req.user!.userId).select('email name');
+    const restaurant = await Restaurant.findById(req.user!.restaurantId);
+
+    if (!user?.email || !restaurant) {
+      res.status(400).json({ error: 'User or restaurant not found.' });
+      return;
+    }
+
+    // Step 1: Ensure provisioned and get token
+    const provisionResult = await provisionClientInMarketingOs({
+      restaurantName: restaurant.name,
+      userName: user.name || restaurant.name,
+      email: user.email,
+    });
+
+    const token = provisionResult.token || (await loginToMarketingOs(user.email));
+
+    if (!token) {
+      res.status(500).json({ error: 'Failed to authenticate with Marketing OS for completion.' });
+      return;
+    }
+
+    // Step 2: Pass code to Marketing OS to complete setup
+    const completeResult = await completeMarketingOsEmbeddedSignup(token, code);
+
+    if (!completeResult.success) {
+      res.status(400).json({ error: completeResult.error || 'Marketing OS failed to complete signup.' });
+      return;
+    }
+
+    // Since Marketing OS handles the token exchange and holds the credentials,
+    // the food-ordering system doesn't need to store the raw access token anymore.
+    // However, we still save the IDs for local webhook handling.
+    await Restaurant.findByIdAndUpdate(
+      req.user!.restaurantId,
+      {
+        whatsappPhoneNumberId: completeResult.phoneNumberId || '',
+        whatsappBusinessAccountId: completeResult.wabaId || '',
+        phoneNumber: completeResult.phoneDisplay || '',
+        // Save the real access token returned by Marketing OS so this app can send messages
+        accessToken: completeResult.accessToken ? encrypt(completeResult.accessToken) : '',
+      },
+      { new: true }
+    );
+
+    res.json({
+      data: {
+        success: true,
+        phoneNumberId: completeResult.phoneNumberId,
+        wabaId: completeResult.wabaId,
+        phoneDisplay: completeResult.phoneDisplay,
+      },
+    });
+  } catch (error: any) {
+    console.error('[EmbeddedSignup] Error:', error);
+    res.status(500).json({ error: 'Embedded signup completion failed.' });
   }
 };

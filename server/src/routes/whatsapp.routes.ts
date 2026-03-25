@@ -6,6 +6,8 @@ import {
   handleWebhook,
   connectWhatsApp,
   getWhatsAppStatus,
+  getEmbeddedConfig,
+  completeEmbeddedSignup,
 } from '../controllers/whatsapp.controller';
 
 const router = Router();
@@ -17,5 +19,9 @@ router.post('/webhook', handleWebhook);
 // Protected routes
 router.post('/connect', authenticate, validateTenant, connectWhatsApp);
 router.get('/status', authenticate, validateTenant, getWhatsAppStatus);
+
+// Embedded Signup routes
+router.get('/embedded/config', authenticate, validateTenant, getEmbeddedConfig);
+router.post('/embedded/complete', authenticate, validateTenant, completeEmbeddedSignup);
 
 export default router;

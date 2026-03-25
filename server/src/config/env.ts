@@ -7,5 +7,9 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET || 'default-secret',
   encryptionKey: process.env.ENCRYPTION_KEY || 'default-encryption-key-32chars!',
   whatsappVerifyToken: process.env.WHATSAPP_VERIFY_TOKEN || 'verify-token',
+  marketingOsApiBaseUrl: process.env.MARKETING_OS_API_BASE_URL || '',
+  marketingOsReferralCode: process.env.MARKETING_OS_REFERRAL_CODE || '',
+  marketingOsDefaultPassword: process.env.MARKETING_OS_DEFAULT_PASSWORD || '',
+  marketingOsProvisionEnabled: process.env.MARKETING_OS_PROVISION_ENABLED === 'true',
   nodeEnv: process.env.NODE_ENV || 'development',
 };
