@@ -26,7 +26,7 @@ const customerSchema = new Schema<ICustomer>(
     restaurantId: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true, index: true },
     whatsappUserId: { type: String, default: '' },
     whatsappFlowState: { type: String, default: 'idle' },
-    whatsappCart: { type: Array, default: [] },
+    whatsappCart: { type: Schema.Types.Mixed, default: [] },
     pincode: { type: String, default: '' },
     city: { type: String, default: '' },
     district: { type: String, default: '' },

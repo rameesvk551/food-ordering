@@ -1,0 +1,32 @@
+{
+  "local": {
+    "name": "Local Development",
+    "apiUrl": "http://localhost:6767/api",
+    "socketUrl": "http://localhost:6767",
+    "ssoDomain": ".localhost",
+    "apps": {
+      "food-ordering": {
+        "url": "http://localhost:5173",
+        "name": "Food Ordering",
+        "description": "WhatsApp Restaurant Ordering System",
+        "icon": "🍔",
+        "requiredRoles": ["Owner", "Admin", "Manager", "Staff", "Viewer"]
+      }
+    }
+  },
+  "production": {
+    "name": "Production",
+    "apiUrl": "https://api.food.wayon.in/api",
+    "socketUrl": "https://api.food.wayon.in",
+    "ssoDomain": ".wayon.in",
+    "apps": {
+      "food-ordering": {
+        "url": "https://food.wayon.in",
+        "name": "Food Ordering",
+        "description": "WhatsApp Restaurant Ordering System",
+        "icon": "🍔",
+        "requiredRoles": ["Owner", "Admin", "Manager", "Staff", "Viewer"]
+      }
+    }
+  }
+}
