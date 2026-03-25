@@ -15,13 +15,15 @@ import uploadRoutes from './routes/upload.routes';
 
 const app = express();
 
-// Security middleware
-app.use(helmet());
+// CORS configuration
 app.use(cors({
-  origin: env.nodeEnv === 'production' 
-    ? (process.env.CLIENT_URL ? process.env.CLIENT_URL.split(',').map(url => url.trim()) : true)
-    : true,
+  origin: true, // Echoes the Origin header (required for credentials: true)
   credentials: true,
+}));
+
+// Security middleware
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
 // Rate limiting
