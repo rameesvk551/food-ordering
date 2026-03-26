@@ -40,6 +40,20 @@ interface MarketingOsEmbeddedCompleteResult {
 const isEnabled = () => env.marketingOsProvisionEnabled && env.marketingOsApiBaseUrl && env.marketingOsPartnerKey;
 
 /**
+ * Normalizes the API Base URL to ensure it ends exactly with /api/v1 once.
+ */
+const getNormalizedV1Url = () => {
+  let base = env.marketingOsApiBaseUrl || '';
+  if (base.endsWith('/')) base = base.slice(0, -1);
+  
+  // If it already ends with /api/v1, use it.
+  if (base.endsWith('/api/v1')) return base;
+  
+  // Otherwise append /api/v1
+  return `${base}/api/v1`;
+};
+
+/**
  * Get a JWT token for a specific tenant using the Partner API Key.
  * This replaces the need for restaurant/user passwords.
  */
@@ -48,7 +62,7 @@ export const getMarketingOsPartnerToken = async (tenantId: string): Promise<stri
 
   try {
     const resp = await axios.post(
-      `${env.marketingOsApiBaseUrl}/api/v1/tenants/${tenantId}/token`,
+      `${getNormalizedV1Url()}/tenants/${tenantId}/token`,
       {},
       {
         headers: { 'x-api-key': env.marketingOsPartnerKey },
@@ -79,14 +93,8 @@ export const provisionClientInMarketingOs = async (
 
   try {
     // We use the Partner API to create a tenant. 
-    // This will also create a User in Marketing OS (if the controller handles it) 
-    // or we might need to call register if the Partner API doesn't create a user.
-    // Given the previous code used /auth/register, let's see if we should stick to it 
-    // but without the password requirement if possible.
-    
-    // Actually, the new Partner API /tenants endpoint is better.
     const resp = await axios.post(
-      `${env.marketingOsApiBaseUrl}/api/v1/tenants`,
+      `${getNormalizedV1Url()}/tenants`,
       {
         name: input.restaurantName,
         email: input.email,
@@ -140,7 +148,7 @@ export const getMarketingOsEmbeddedConfig = async (
 
   try {
     const resp = await axios.get(
-      `${env.marketingOsApiBaseUrl}/whatsapp/settings/embedded/config`,
+      `${getNormalizedV1Url()}/whatsapp/settings/embedded/config`,
       {
         headers: { Authorization: `Bearer ${token}` },
         timeout: 10000,
@@ -167,7 +175,7 @@ export const completeMarketingOsEmbeddedSignup = async (
 
   try {
     const resp = await axios.post(
-      `${env.marketingOsApiBaseUrl}/whatsapp/settings/embedded/complete`,
+      `${getNormalizedV1Url()}/whatsapp/settings/embedded/complete`,
       { code, state },
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -190,4 +198,5 @@ export const completeMarketingOsEmbeddedSignup = async (
     return { success: false, error: apiMessage || 'Unknown error' };
   }
 };
+
 

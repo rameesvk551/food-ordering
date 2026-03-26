@@ -10,7 +10,17 @@ export const env = {
   marketingOsApiBaseUrl: process.env.MARKETING_OS_API_BASE_URL || '',
   marketingOsReferralCode: process.env.MARKETING_OS_REFERRAL_CODE || '',
   marketingOsPartnerKey: process.env.MARKETING_OS_PARTNER_KEY || '',
-  marketingOsProvisionEnabled: process.env.MARKETING_OS_PROVISION_ENABLED === 'true',
+  marketingOsProvisionEnabled: String(process.env.MARKETING_OS_PROVISION_ENABLED).toLowerCase() === 'true',
   nodeEnv: process.env.NODE_ENV || 'development',
-
 };
+
+// Diagnostic Logging for Marketing OS
+if (env.nodeEnv === 'production' || env.marketingOsApiBaseUrl) {
+  console.log('[Config] Marketing OS Status:', {
+    enabled: env.marketingOsProvisionEnabled,
+    baseUrl: env.marketingOsApiBaseUrl ? 'SET' : 'MISSING',
+    partnerKey: env.marketingOsPartnerKey ? 'SET (masked)' : 'MISSING',
+    nodeEnv: env.nodeEnv
+  });
+}
+

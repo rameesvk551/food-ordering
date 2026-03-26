@@ -12,6 +12,10 @@ import {
   ShoppingBag, Plus, UtensilsCrossed, Phone, ChevronDown,
 } from 'lucide-react';
 
+interface DisplayMenuItem extends MenuItem {
+  category: string;
+}
+
 interface MenuItem {
   _id: string;
   name: string;
@@ -45,6 +49,7 @@ const StorePage = () => {
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
@@ -69,16 +74,49 @@ const StorePage = () => {
     if (slug) fetchStore();
   }, [slug]);
 
-  const filteredItems = useMemo(() => {
+  const filteredItems = useMemo<DisplayMenuItem[]>(() => {
     if (!restaurant) return [];
+    const normalizedQuery = searchQuery.trim().toLowerCase();
+    const matchesQuery = (item: MenuItem) => {
+      if (!normalizedQuery) return true;
+      return (
+        item.name.toLowerCase().includes(normalizedQuery)
+        || item.description.toLowerCase().includes(normalizedQuery)
+      );
+    };
+
     if (selectedCategory === 'all') {
       return restaurant.menu.flatMap((cat) =>
-        cat.items.filter((i) => i.isAvailable).map((item) => ({ ...item, category: cat.name }))
+        cat.items
+          .filter((i) => i.isAvailable)
+          .filter(matchesQuery)
+          .map((item) => ({ ...item, category: cat.name }))
       );
     }
     const cat = restaurant.menu.find((c) => c._id === selectedCategory);
-    return cat ? cat.items.filter((i) => i.isAvailable).map((item) => ({ ...item, category: cat.name })) : [];
-  }, [restaurant, selectedCategory]);
+    return cat
+      ? cat.items
+        .filter((i) => i.isAvailable)
+        .filter(matchesQuery)
+        .map((item) => ({ ...item, category: cat.name }))
+      : [];
+  }, [restaurant, selectedCategory, searchQuery]);
+
+  const availableItemCount = useMemo(() => {
+    if (!restaurant) return 0;
+    return restaurant.menu.reduce(
+      (count, category) => count + category.items.filter((item) => item.isAvailable).length,
+      0
+    );
+  }, [restaurant]);
+
+  const groupedItems = useMemo(() => {
+    return filteredItems.reduce<Record<string, DisplayMenuItem[]>>((acc, item) => {
+      if (!acc[item.category]) acc[item.category] = [];
+      acc[item.category].push(item);
+      return acc;
+    }, {});
+  }, [filteredItems]);
 
   const handleAddToCart = (item: MenuItem) => {
     addItem({ productId: item._id, name: item.name, price: item.price, image: item.image });
@@ -175,6 +213,24 @@ const StorePage = () => {
       </div>
 
       <div className="max-w-4xl mx-auto px-4 -mt-6">
+        <div className="bg-white rounded-2xl border border-border shadow-sm p-3 md:p-4 mb-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-text-secondary">
+              Digital menu for <span className="font-semibold text-text-primary">{restaurant.name}</span>
+            </p>
+            <span className="text-xs md:text-sm font-semibold text-primary-700 bg-primary-50 border border-primary-100 px-3 py-1.5 rounded-full">
+              {availableItemCount} items available
+            </span>
+          </div>
+          <div className="mt-3">
+            <Input
+              placeholder="Search dishes or ingredients"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+        </div>
+
         {/* Category Chips */}
         <div className="flex gap-2 overflow-x-auto pb-4 scrollbar-hide -mx-4 px-4 sticky top-16 lg:top-0 z-10 bg-transparent pt-2">
           <button
@@ -206,51 +262,63 @@ const StorePage = () => {
         {filteredItems.length === 0 ? (
           <div className="text-center py-16 bg-white rounded-2xl border border-border mt-4">
             <UtensilsCrossed className="w-12 h-12 text-text-muted mx-auto mb-3" />
-            <p className="text-text-secondary font-medium">No items available</p>
+            <p className="text-text-secondary font-medium">No matching items found</p>
+            <p className="text-text-muted text-sm mt-1">Try a different category or search term.</p>
           </div>
         ) : (
-          <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 mt-2">
-            {filteredItems.map((item) => (
-              <div
-                key={item._id}
-                className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden
-                  hover:shadow-md transition-all duration-300 group flex sm:flex-col"
-              >
-                {item.image ? (
-                  <div className="relative overflow-hidden w-24 h-24 sm:w-full sm:h-40 shrink-0">
-                    <img
-                      src={item.image}
-                      alt={item.name}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    />
-                  </div>
-                ) : (
-                  <div className="w-24 h-24 sm:w-full sm:h-40 bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center shrink-0">
-                    <UtensilsCrossed className="w-8 h-8 sm:w-10 sm:h-10 text-primary-300" />
-                  </div>
-                )}
-                <div className="p-3 md:p-3.5 flex-1 flex flex-col justify-between">
-                  <div>
-                    <h3 className="font-bold text-text-primary text-sm md:text-base mb-0.5 truncate">{item.name}</h3>
-                    {item.description && (
-                      <p className="text-xs text-text-muted line-clamp-1 sm:line-clamp-2 mb-2">{item.description}</p>
-                    )}
-                  </div>
-                  <div className="flex justify-between items-center mt-auto">
-                    <span className="text-base md:text-lg font-bold text-primary-600">₹{item.price}</span>
-                    <button
-                      onClick={() => handleAddToCart(item)}
-                      className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all duration-300 btn-press cursor-pointer ${
-                        addedItems.has(item._id)
-                          ? 'bg-accent-500 text-white animate-bounce-in scale-110'
-                          : 'bg-primary-500 hover:bg-primary-600 text-white shadow-md shadow-primary-500/25'
-                      }`}
-                    >
-                      <Plus className="w-4 h-4 md:w-5 md:h-5" />
-                    </button>
-                  </div>
+          <div className="space-y-5 mt-2">
+            {Object.entries(groupedItems).map(([categoryName, categoryItems]) => (
+              <section key={categoryName}>
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <h2 className="text-sm md:text-base font-bold text-text-primary">{categoryName}</h2>
+                  <span className="text-xs text-text-muted">{categoryItems.length} item{categoryItems.length > 1 ? 's' : ''}</span>
                 </div>
-              </div>
+
+                <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+                  {categoryItems.map((item) => (
+                    <div
+                      key={item._id}
+                      className="bg-white rounded-2xl border border-border shadow-sm overflow-hidden
+                        hover:shadow-md transition-all duration-300 group flex sm:flex-col"
+                    >
+                      {item.image ? (
+                        <div className="relative overflow-hidden w-24 h-24 sm:w-full sm:h-40 shrink-0">
+                          <img
+                            src={item.image}
+                            alt={item.name}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 sm:w-full sm:h-40 bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center shrink-0">
+                          <UtensilsCrossed className="w-8 h-8 sm:w-10 sm:h-10 text-primary-300" />
+                        </div>
+                      )}
+                      <div className="p-3 md:p-3.5 flex-1 flex flex-col justify-between">
+                        <div>
+                          <h3 className="font-bold text-text-primary text-sm md:text-base mb-0.5 truncate">{item.name}</h3>
+                          {item.description && (
+                            <p className="text-xs text-text-muted line-clamp-1 sm:line-clamp-2 mb-2">{item.description}</p>
+                          )}
+                        </div>
+                        <div className="flex justify-between items-center mt-auto">
+                          <span className="text-base md:text-lg font-bold text-primary-600">₹{item.price}</span>
+                          <button
+                            onClick={() => handleAddToCart(item)}
+                            className={`w-9 h-9 md:w-10 md:h-10 rounded-xl flex items-center justify-center transition-all duration-300 btn-press cursor-pointer ${
+                              addedItems.has(item._id)
+                                ? 'bg-accent-500 text-white animate-bounce-in scale-110'
+                                : 'bg-primary-500 hover:bg-primary-600 text-white shadow-md shadow-primary-500/25'
+                            }`}
+                          >
+                            <Plus className="w-4 h-4 md:w-5 md:h-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
