@@ -8,6 +8,7 @@ import DashboardLayout from './components/admin/DashboardLayout';
 import OrdersPage from './pages/admin/OrdersPage';
 import MenuPage from './pages/admin/MenuPage';
 import WhatsAppPage from './pages/admin/WhatsAppPage';
+import MetaCallbackPage from './pages/auth/MetaCallbackPage';
 
 import StorePage from './pages/customer/StorePage';
 import OrderSuccessPage from './pages/customer/OrderSuccessPage';
@@ -27,6 +28,9 @@ const App = () => {
                 <Route path="menu" element={<MenuPage />} />
                 <Route path="whatsapp" element={<WhatsAppPage />} />
               </Route>
+
+              {/* OAuth Callbacks */}
+              <Route path="/auth/meta/callback" element={<MetaCallbackPage />} />
 
               {/* Customer Routes (slug-based per restaurant) */}
               <Route path="/:slug" element={<StorePage />} />

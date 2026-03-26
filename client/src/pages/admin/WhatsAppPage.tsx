@@ -99,57 +99,74 @@ const WhatsAppPage = () => {
 
   // ── Embedded Signup handler ──
   const handleEmbeddedSignup = useCallback(() => {
-    if (!embeddedConfig?.appId || !sdkReady || !window.FB) {
-      showToast('Facebook SDK is not ready. Please wait...', 'error');
+    if (!embeddedConfig?.appId) {
+      showToast('Embedded configuration not loaded.', 'error');
       return;
     }
 
-    const loginOptions: any = {
-      scope: 'business_management,whatsapp_business_management,whatsapp_business_messaging',
-      extras: {
-        feature: 'whatsapp_embedded_signup',
-        setup: {},
-      },
-    };
-
-    if (embeddedConfig.configId) {
-      loginOptions.config_id = embeddedConfig.configId;
-    }
+    const appId = embeddedConfig.appId;
+    const configId = embeddedConfig.configId || '1410044504170655'; // Fallback if not in config
+    const redirectUri = embeddedConfig.redirectUri || `${window.location.origin}/auth/meta/callback`;
+    const state = embeddedConfig.state || 'direct_oauth';
+    
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=business_management,whatsapp_business_management,whatsapp_business_messaging&response_type=code&config_id=${configId}&state=${state}`;
 
     setEmbeddedStep('facebook');
 
-    window.FB.login(
-      (response: any) => {
-        if (response.authResponse) {
-          const code = response.authResponse.code || response.authResponse.accessToken;
+    // Open popup
+    const width = 600;
+    const height = 700;
+    const left = window.screen.width / 2 - width / 2;
+    const top = window.screen.height / 2 - height / 2;
+    const popup = window.open(
+      oauthUrl,
+      'MetaSignup',
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
 
-          if (code) {
-            setEmbeddedStep('completing');
+    if (!popup) {
+      showToast('Popup blocked! Please allow popups for this site.', 'error');
+      setEmbeddedStep('idle');
+      return;
+    }
 
-            // Handle the async part separately
-            (async () => {
-              try {
-                await api.post('/whatsapp/embedded/complete', { code });
-                setEmbeddedStep('done');
-                showToast('WhatsApp connected successfully via Embedded Signup!');
-                fetchStatus();
-              } catch (err: any) {
-                showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
-                setEmbeddedStep('idle');
-              }
-            })();
-          } else {
-            showToast('Facebook login succeeded but no authorization code was returned.', 'error');
-            setEmbeddedStep('idle');
-          }
-        } else {
-          showToast('Facebook login was cancelled.', 'error');
+    // Listen for code from popup
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data?.type === 'WA_EMBEDDED_CODE') {
+        const { code } = event.data;
+        window.removeEventListener('message', handleMessage);
+        
+        setEmbeddedStep('completing');
+        try {
+          await api.post('/whatsapp/embedded/complete', { code, state });
+          setEmbeddedStep('done');
+          showToast('WhatsApp connected successfully!');
+          fetchStatus();
+        } catch (err: any) {
+          showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
           setEmbeddedStep('idle');
         }
-      },
-      loginOptions
-    );
-  }, [embeddedConfig, sdkReady]);
+      } else if (event.data?.type === 'WA_EMBEDDED_ERROR') {
+        window.removeEventListener('message', handleMessage);
+        showToast('Facebook signup was cancelled or failed.', 'error');
+        setEmbeddedStep('idle');
+      }
+    };
+
+    window.addEventListener('message', handleMessage);
+
+    // Backup: check if popup was closed
+    const timer = setInterval(() => {
+      if (popup.closed) {
+        clearInterval(timer);
+        setTimeout(() => {
+          setEmbeddedStep(prev => prev === 'facebook' ? 'idle' : prev);
+        }, 1000);
+      }
+    }, 1000);
+  }, [embeddedConfig, fetchStatus, showToast]);
 
   // ── Manual connect handler ──
   const handleManualConnect = async () => {
