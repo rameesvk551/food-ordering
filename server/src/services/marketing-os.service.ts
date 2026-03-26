@@ -142,15 +142,18 @@ export const provisionClientInMarketingOs = async (
 // ── Get Embedded Signup config from Marketing OS ──
 
 export const getMarketingOsEmbeddedConfig = async (
-  token: string
+  token: string,
+  callbackUrl?: string
 ): Promise<MarketingOsEmbeddedConfig | null> => {
   if (!isEnabled()) return null;
 
   try {
+    const params = callbackUrl ? { callbackUrl } : undefined;
     const resp = await axios.get(
       `${getNormalizedV1Url()}/whatsapp/settings/embedded/config`,
       {
         headers: { Authorization: `Bearer ${token}` },
+        params,
         timeout: 10000,
       }
     );

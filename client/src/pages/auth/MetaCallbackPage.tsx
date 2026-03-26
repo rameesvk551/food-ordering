@@ -9,9 +9,9 @@ const MetaCallbackPage = () => {
   useEffect(() => {
     if (window.opener) {
       if (code) {
-        window.opener.postMessage({ type: 'WA_EMBEDDED_CODE', code }, window.location.origin);
+        window.opener.postMessage({ type: 'WA_EMBEDDED_CODE', code }, '*');
       } else if (error) {
-        window.opener.postMessage({ type: 'WA_EMBEDDED_ERROR', error }, window.location.origin);
+        window.opener.postMessage({ type: 'WA_EMBEDDED_ERROR', error }, '*');
       }
       window.close();
     }

@@ -548,6 +548,7 @@ export const getWhatsAppStatus = async (req: AuthRequest, res: Response): Promis
 export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promise<void> => {
   console.log('[getEmbeddedConfig] Called for user:', req.user?.userId, 'restaurant:', req.user?.restaurantId);
   try {
+    const callbackUrl = typeof req.query?.callbackUrl === 'string' ? req.query.callbackUrl : undefined;
     const user = await User.findById(req.user!.userId).select('email name');
     const restaurant = await Restaurant.findById(req.user!.restaurantId);
 
@@ -579,7 +580,7 @@ export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promis
     }
 
     console.log('[getEmbeddedConfig] Fetching embedded config from Marketing OS...');
-    const config = await getMarketingOsEmbeddedConfig(token);
+    const config = await getMarketingOsEmbeddedConfig(token, callbackUrl);
     if (!config) {
       console.error('[getEmbeddedConfig] Error: Failed to get Embedded Signup config.');
       res.status(501).json({ error: 'Failed to get Embedded Signup config from Marketing OS.' });

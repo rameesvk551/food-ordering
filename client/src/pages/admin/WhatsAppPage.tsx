@@ -111,8 +111,15 @@ const WhatsAppPage = () => {
     const configId = embeddedConfig.configId || '1410044504170655'; // Fallback if not in config
     const redirectUri = embeddedConfig.redirectUri || `${window.location.origin}/auth/meta/callback`;
     const state = embeddedConfig.state || 'direct_oauth';
-    
-    const oauthUrl = `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=business_management,whatsapp_business_management,whatsapp_business_messaging&response_type=code&config_id=${configId}&state=${state}`;
+
+    const allowedMessageOrigins = new Set<string>([window.location.origin]);
+    try {
+      allowedMessageOrigins.add(new URL(redirectUri).origin);
+    } catch {
+      // Ignore invalid redirect URI origin parsing.
+    }
+
+    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=business_management,whatsapp_business_management,whatsapp_business_messaging&response_type=code&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}`;
 
     setEmbeddedStep('facebook');
 
@@ -135,7 +142,7 @@ const WhatsAppPage = () => {
 
     // Listen for code from popup
     const handleMessage = async (event: MessageEvent) => {
-      if (event.origin !== window.location.origin) return;
+      if (!allowedMessageOrigins.has(event.origin)) return;
       
       if (event.data?.type === 'WA_EMBEDDED_CODE') {
         const { code } = event.data;
