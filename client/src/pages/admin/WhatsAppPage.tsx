@@ -43,7 +43,10 @@ const WhatsAppPage = () => {
   const fetchEmbeddedConfig = async () => {
     setSdkLoading(true);
     try {
-      const res = await api.get('/whatsapp/embedded/config');
+      const callbackUrl = `${window.location.origin}/auth/meta/callback`;
+      const res = await api.get('/whatsapp/embedded/config', {
+        params: { callbackUrl }
+      });
       const data = res.data?.data;
       if (data?.appId) {
         setEmbeddedConfig(data);
@@ -109,7 +112,7 @@ const WhatsAppPage = () => {
     const redirectUri = embeddedConfig.redirectUri || `${window.location.origin}/auth/meta/callback`;
     const state = embeddedConfig.state || 'direct_oauth';
     
-    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=business_management,whatsapp_business_management,whatsapp_business_messaging&response_type=code&config_id=${configId}&state=${state}`;
+    const oauthUrl = `https://www.facebook.com/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=business_management,whatsapp_business_management,whatsapp_business_messaging&response_type=code&config_id=${configId}&state=${state}`;
 
     setEmbeddedStep('facebook');
 
