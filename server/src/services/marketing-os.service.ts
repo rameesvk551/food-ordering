@@ -160,7 +160,30 @@ export const getMarketingOsEmbeddedConfig = async (
 
     return resp.data?.data || null;
   } catch (error: any) {
-    console.error('[MarketingOS] Failed to get embedded config:', error?.response?.data || error?.message);
+    const status = error?.response?.status;
+    const responseData = error?.response?.data;
+    const responseError = String(responseData?.error || responseData?.message || '').toLowerCase();
+
+    // Backward-compatible fallback: some Marketing OS deployments reject callbackUrl
+    // unless callback hosts are explicitly allowlisted.
+    if (callbackUrl && status === 400 && responseError.includes('invalid callbackurl')) {
+      try {
+        console.warn('[MarketingOS] callbackUrl rejected; retrying embedded config without callbackUrl.');
+        const retryResp = await axios.get(
+          `${getNormalizedV1Url()}/whatsapp/settings/embedded/config`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10000,
+          }
+        );
+        return retryResp.data?.data || null;
+      } catch (retryError: any) {
+        console.error('[MarketingOS] Retry without callbackUrl failed:', retryError?.response?.data || retryError?.message);
+        return null;
+      }
+    }
+
+    console.error('[MarketingOS] Failed to get embedded config:', responseData || error?.message);
     return null;
   }
 };
