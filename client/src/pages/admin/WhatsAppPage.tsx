@@ -111,6 +111,7 @@ const WhatsAppPage = () => {
     const configId = embeddedConfig.configId || '1410044504170655'; // Fallback if not in config
     const redirectUri = embeddedConfig.redirectUri || `${window.location.origin}/auth/meta/callback`;
     const state = embeddedConfig.state || 'direct_oauth';
+    const scope = 'business_management,whatsapp_business_management,whatsapp_business_messaging';
 
     const allowedMessageOrigins = new Set<string>([window.location.origin]);
     try {
@@ -119,63 +120,94 @@ const WhatsAppPage = () => {
       // Ignore invalid redirect URI origin parsing.
     }
 
-    const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=business_management,whatsapp_business_management,whatsapp_business_messaging&response_type=code&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}`;
-
-    setEmbeddedStep('facebook');
-
-    // Open popup
-    const width = 600;
-    const height = 700;
-    const left = window.screen.width / 2 - width / 2;
-    const top = window.screen.height / 2 - height / 2;
-    const popup = window.open(
-      oauthUrl,
-      'MetaSignup',
-      `width=${width},height=${height},left=${left},top=${top}`
-    );
-
-    if (!popup) {
-      showToast('Popup blocked! Please allow popups for this site.', 'error');
-      setEmbeddedStep('idle');
-      return;
-    }
-
-    // Listen for code from popup
-    const handleMessage = async (event: MessageEvent) => {
-      if (!allowedMessageOrigins.has(event.origin)) return;
-      
-      if (event.data?.type === 'WA_EMBEDDED_CODE') {
-        const { code } = event.data;
-        window.removeEventListener('message', handleMessage);
-        
-        setEmbeddedStep('completing');
-        try {
-          await api.post('/whatsapp/embedded/complete', { code, state });
-          setEmbeddedStep('done');
-          showToast('WhatsApp connected successfully!');
-          fetchStatus();
-        } catch (err: any) {
-          showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
-          setEmbeddedStep('idle');
-        }
-      } else if (event.data?.type === 'WA_EMBEDDED_ERROR') {
-        window.removeEventListener('message', handleMessage);
-        showToast('Facebook signup was cancelled or failed.', 'error');
+    const completeWithCode = async (code: string) => {
+      setEmbeddedStep('completing');
+      try {
+        await api.post('/whatsapp/embedded/complete', { code, state });
+        setEmbeddedStep('done');
+        showToast('WhatsApp connected successfully!');
+        fetchStatus();
+      } catch (err: any) {
+        showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
         setEmbeddedStep('idle');
       }
     };
 
-    window.addEventListener('message', handleMessage);
+    const openOAuthPopupFallback = () => {
+      const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&display=popup`;
 
-    // Backup: check if popup was closed
-    const timer = setInterval(() => {
-      if (popup.closed) {
-        clearInterval(timer);
-        setTimeout(() => {
-          setEmbeddedStep(prev => prev === 'facebook' ? 'idle' : prev);
-        }, 1000);
+      // Open popup
+      const width = 600;
+      const height = 700;
+      const left = window.screen.width / 2 - width / 2;
+      const top = window.screen.height / 2 - height / 2;
+      const popup = window.open(
+        oauthUrl,
+        'MetaSignup',
+        `width=${width},height=${height},left=${left},top=${top}`
+      );
+
+      if (!popup) {
+        showToast('Popup blocked! Please allow popups for this site.', 'error');
+        setEmbeddedStep('idle');
+        return;
       }
-    }, 1000);
+
+      // Listen for code from popup callback page
+      const handleMessage = async (event: MessageEvent) => {
+        if (!allowedMessageOrigins.has(event.origin)) return;
+
+        if (event.data?.type === 'WA_EMBEDDED_CODE') {
+          const { code } = event.data;
+          window.removeEventListener('message', handleMessage);
+          await completeWithCode(code);
+        } else if (event.data?.type === 'WA_EMBEDDED_ERROR') {
+          window.removeEventListener('message', handleMessage);
+          showToast('Facebook signup was cancelled or failed.', 'error');
+          setEmbeddedStep('idle');
+        }
+      };
+
+      window.addEventListener('message', handleMessage);
+
+      // Backup: check if popup was closed
+      const timer = setInterval(() => {
+        if (popup.closed) {
+          clearInterval(timer);
+          setTimeout(() => {
+            setEmbeddedStep(prev => prev === 'facebook' ? 'idle' : prev);
+          }, 1000);
+        }
+      }, 1000);
+    };
+
+    setEmbeddedStep('facebook');
+
+    // Primary path: SDK login for Embedded Signup (more reliable than manual dialog URL)
+    if (window.FB && sdkReady) {
+      window.FB.login(
+        async (response: any) => {
+          const code = response?.authResponse?.code;
+          if (code) {
+            await completeWithCode(code);
+            return;
+          }
+
+          // If SDK flow is blocked or cancelled, fallback to explicit popup URL flow.
+          openOAuthPopupFallback();
+        },
+        {
+          config_id: configId,
+          response_type: 'code',
+          override_default_response_type: true,
+          scope,
+        }
+      );
+      return;
+    }
+
+    // Fallback path when SDK is not ready.
+    openOAuthPopupFallback();
   }, [embeddedConfig, fetchStatus, showToast]);
 
   // ── Manual connect handler ──
