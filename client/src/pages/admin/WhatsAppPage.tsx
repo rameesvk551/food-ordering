@@ -119,25 +119,25 @@ const WhatsAppPage = () => {
     setEmbeddedStep('facebook');
 
     window.FB.login(
-      async (response: any) => {
+      (response: any) => {
         if (response.authResponse) {
           const code = response.authResponse.code || response.authResponse.accessToken;
 
           if (code) {
             setEmbeddedStep('completing');
 
-
-            try {
-              await api.post('/whatsapp/embedded/complete', { code });
-              setEmbeddedStep('done');
-              showToast('WhatsApp connected successfully via Embedded Signup!');
-              fetchStatus();
-            } catch (err: any) {
-              showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
-              setEmbeddedStep('idle');
-            } finally {
-              // done
-            }
+            // Handle the async part separately
+            (async () => {
+              try {
+                await api.post('/whatsapp/embedded/complete', { code });
+                setEmbeddedStep('done');
+                showToast('WhatsApp connected successfully via Embedded Signup!');
+                fetchStatus();
+              } catch (err: any) {
+                showToast(err?.response?.data?.error || 'Embedded signup failed.', 'error');
+                setEmbeddedStep('idle');
+              }
+            })();
           } else {
             showToast('Facebook login succeeded but no authorization code was returned.', 'error');
             setEmbeddedStep('idle');

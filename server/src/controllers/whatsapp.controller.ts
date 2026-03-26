@@ -586,7 +586,7 @@ export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promis
       return;
     }
 
-    console.log('[getEmbeddedConfig] Successfully retrieved config.');
+    console.log('[getEmbeddedConfig] Successfully retrieved config:', JSON.stringify(config, null, 2));
     res.json({ data: config });
   } catch (error) {
     console.error('[getEmbeddedConfig] Unexpected error:', error);
