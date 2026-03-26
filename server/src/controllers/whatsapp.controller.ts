@@ -83,10 +83,10 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
     // Handle interactive responses (Buttons, Lists, etc.)
     if (message.type === 'interactive') {
       const interactive = message.interactive;
-      
+
       if (interactive.type === 'button_reply') {
         const buttonId = interactive.button_reply.id;
-        
+
         if (buttonId === 'view_menu') {
           // Send category list
           const sections = [{
@@ -96,7 +96,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               title: cat.name
             }))
           }];
-          
+
           await sendListMessage(
             customerPhone,
             'Choose a category 👇',
@@ -115,7 +115,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           const lastOrders = await Order.find({ customerId: customer._id })
             .sort({ createdAt: -1 })
             .limit(5);
-          
+
           if (lastOrders.length === 0) {
             await sendWhatsAppMessage(
               customerPhone,
@@ -188,7 +188,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             .map((i: any) => `${i.name} x${i.quantity} - ₹${i.price * i.quantity}`)
             .join('\n');
           const total = customer.whatsappCart.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
-          
+
           await sendInteractiveButtons(
             customerPhone,
             `🧾 *Order Summary (Pickup)*\n\n${itemsSummary}\n\n-------------------\n*Total: ₹${total}*`,
@@ -219,7 +219,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             paymentStatus: 'pending'
           });
           await order.save();
-          
+
           // Send payment message
           await sendOrderDetailsMessage(
             customerPhone,
@@ -227,7 +227,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             restaurant.whatsappPhoneNumberId,
             restaurant.accessToken
           );
-          
+
           customer.whatsappFlowState = 'idle';
           customer.whatsappCart = [];
           await customer.save();
@@ -255,7 +255,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               title: cat.name
             }))
           }];
-          
+
           await sendListMessage(
             customerPhone,
             'Choose a category 👇',
@@ -283,11 +283,11 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
       if (interactive.type === 'list_reply') {
         const rowId = interactive.list_reply.id;
-        
+
         if (rowId.startsWith('cat_')) {
           const categoryName = rowId.replace('cat_', '');
           const category = restaurant.menu.find(c => c._id?.toString() === categoryName || c.name === categoryName);
-          
+
           if (category) {
             const sections = [{
               title: category.name,
@@ -297,7 +297,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
                 description: item.description
               }))
             }];
-            
+
             await sendListMessage(
               customerPhone,
               `Select an item from ${category.name} 👇`,
@@ -316,7 +316,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           const itemName = rowId.replace('item_', '');
           const allItems = restaurant.menu.flatMap(c => c.items);
           const item = allItems.find(i => i._id?.toString() === itemName || i.name === itemName);
-          
+
           if (item) {
             customer.whatsappCart.push({
               productId: item._id?.toString() || item.name,
@@ -349,12 +349,12 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         if (rowId.startsWith('order_')) {
           const orderId = rowId.replace('order_', '');
           const order = await Order.findById(orderId);
-          
+
           if (order) {
             const itemsSummary = order.items
               .map((i) => `${i.name} x${i.quantity}`)
               .join('\n');
-            
+
             await sendInteractiveButtons(
               customerPhone,
               `🧾 *Order Details*\n\nOrder ID: #${order._id.toString().slice(-4)}\nDate: ${order.createdAt.toLocaleDateString()}\nStatus: ${order.status}\n\n*Items:*\n${itemsSummary}\n\n*Total: ₹${order.totalAmount}*`,
@@ -372,7 +372,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         if (rowId.startsWith('reorder_')) {
           const orderId = rowId.replace('reorder_', '');
           const order = await Order.findById(orderId);
-          
+
           if (order) {
             customer.whatsappCart = order.items.map(i => ({
               productId: i.productId,
@@ -419,7 +419,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           .map((i: any) => `${i.name} x${i.quantity} - ₹${i.price * i.quantity}`)
           .join('\n');
         const total = customer.whatsappCart.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
-        
+
         await sendInteractiveButtons(
           customerPhone,
           `🧾 *Order Summary (Delivery)*\n\n${itemsSummary}\n\n-------------------\n*Total: ₹${total}*`,
@@ -545,47 +545,65 @@ export const getWhatsAppStatus = async (req: AuthRequest, res: Response): Promis
 
 // GET /whatsapp/embedded/config
 export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promise<void> => {
+  console.log('[getEmbeddedConfig] Called for user:', req.user?.userId, 'restaurant:', req.user?.restaurantId);
   try {
     const user = await User.findById(req.user!.userId).select('email name');
     const restaurant = await Restaurant.findById(req.user!.restaurantId);
 
+    console.log('[getEmbeddedConfig] Found user email:', user?.email, 'restaurant name:', restaurant?.name);
+
     if (!user?.email || !restaurant) {
+      console.error('[getEmbeddedConfig] Error: User email or restaurant not found.', { userEmail: user?.email, hasRestaurant: !!restaurant });
       res.status(400).json({ error: 'User email or restaurant not found for Marketing OS auth.' });
       return;
     }
 
     // Provision client if not exists and get token
+    console.log('[getEmbeddedConfig] Provisioning client in Marketing OS...');
     const provisionResult = await provisionClientInMarketingOs({
       restaurantName: restaurant.name,
       userName: user.name || restaurant.name,
       email: user.email,
     });
+    console.log('[getEmbeddedConfig] Provision result:', { 
+      attempted: provisionResult.attempted, 
+      provisioned: provisionResult.provisioned, 
+      hasToken: !!provisionResult.token 
+    });
 
     const token = provisionResult.token || (await loginToMarketingOs(user.email));
+    console.log('[getEmbeddedConfig] Token outcome:', { hasToken: !!token });
+
     if (!token) {
+      console.error('[getEmbeddedConfig] Error: Failed to authenticate with Marketing OS.');
       res.status(501).json({ error: 'Failed to authenticate with Marketing OS.' });
       return;
     }
 
+    console.log('[getEmbeddedConfig] Fetching embedded config from Marketing OS...');
     const config = await getMarketingOsEmbeddedConfig(token);
     if (!config) {
+      console.error('[getEmbeddedConfig] Error: Failed to get Embedded Signup config.');
       res.status(501).json({ error: 'Failed to get Embedded Signup config from Marketing OS.' });
       return;
     }
 
+    console.log('[getEmbeddedConfig] Successfully retrieved config.');
     res.json({ data: config });
   } catch (error) {
-    console.error('[getEmbeddedConfig] Error:', error);
+    console.error('[getEmbeddedConfig] Unexpected error:', error);
     res.status(500).json({ error: 'Failed to get embedded signup config.' });
   }
 };
 
 // POST /whatsapp/embedded/complete
 export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): Promise<void> => {
+  console.log('[completeEmbeddedSignup] Called for restaurant:', req.user?.restaurantId);
   try {
     const { code } = req.body;
 
     if (!code) {
+      console.error('[completeEmbeddedSignup] Error: Authorization code missing in request body.');
       res.status(400).json({ error: 'Authorization code is required.' });
       return;
     }
@@ -593,12 +611,16 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
     const user = await User.findById(req.user!.userId).select('email name');
     const restaurant = await Restaurant.findById(req.user!.restaurantId);
 
+    console.log('[completeEmbeddedSignup] Found user email:', user?.email, 'restaurant name:', restaurant?.name);
+
     if (!user?.email || !restaurant) {
+      console.error('[completeEmbeddedSignup] Error: User or restaurant not found.', { userEmail: user?.email, hasRestaurant: !!restaurant });
       res.status(400).json({ error: 'User or restaurant not found.' });
       return;
     }
 
     // Step 1: Ensure provisioned and get token
+    console.log('[completeEmbeddedSignup] Provisioning/Logging in to Marketing OS...');
     const provisionResult = await provisionClientInMarketingOs({
       restaurantName: restaurant.name,
       userName: user.name || restaurant.name,
@@ -606,16 +628,21 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
     });
 
     const token = provisionResult.token || (await loginToMarketingOs(user.email));
+    console.log('[completeEmbeddedSignup] Token result:', { hasToken: !!token });
 
     if (!token) {
+      console.error('[completeEmbeddedSignup] Error: Failed to authenticate with Marketing OS.');
       res.status(500).json({ error: 'Failed to authenticate with Marketing OS for completion.' });
       return;
     }
 
     // Step 2: Pass code to Marketing OS to complete setup
+    console.log('[completeEmbeddedSignup] Sending authorization code to Marketing OS...');
     const completeResult = await completeMarketingOsEmbeddedSignup(token, code);
+    console.log('[completeEmbeddedSignup] Signup completion result:', completeResult);
 
     if (!completeResult.success) {
+      console.error('[completeEmbeddedSignup] Error: Marketing OS failed to complete signup.', completeResult.error);
       res.status(400).json({ error: completeResult.error || 'Marketing OS failed to complete signup.' });
       return;
     }
@@ -623,6 +650,7 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
     // Since Marketing OS handles the token exchange and holds the credentials,
     // the food-ordering system doesn't need to store the raw access token anymore.
     // However, we still save the IDs for local webhook handling.
+    console.log('[completeEmbeddedSignup] Saving credentials to restaurant database...');
     await Restaurant.findByIdAndUpdate(
       req.user!.restaurantId,
       {
@@ -635,6 +663,7 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
       { new: true }
     );
 
+    console.log('[completeEmbeddedSignup] Successfully completed embedded signup.');
     res.json({
       data: {
         success: true,
@@ -644,7 +673,7 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
       },
     });
   } catch (error: any) {
-    console.error('[EmbeddedSignup] Error:', error);
+    console.error('[completeEmbeddedSignup] Unexpected error:', error);
     res.status(500).json({ error: 'Embedded signup completion failed.' });
   }
 };
