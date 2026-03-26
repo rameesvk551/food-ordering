@@ -37,35 +37,28 @@ interface MarketingOsEmbeddedCompleteResult {
 
 // ── Helpers ──
 
-const buildTempPassword = (): string => {
-  const base = env.marketingOsDefaultPassword;
-  if (base) {
-    return base;
-  }
+const isEnabled = () => env.marketingOsProvisionEnabled && env.marketingOsApiBaseUrl && env.marketingOsPartnerKey;
 
-  const random = crypto.randomBytes(6).toString('hex');
-  return `MoTemp#${random}`;
-};
-
-const isEnabled = () => env.marketingOsProvisionEnabled && env.marketingOsApiBaseUrl;
-
-// ── Login to Marketing OS (get a JWT for a provisioned restaurant) ──
-
-export const loginToMarketingOs = async (email: string): Promise<string | null> => {
+/**
+ * Get a JWT token for a specific tenant using the Partner API Key.
+ * This replaces the need for restaurant/user passwords.
+ */
+export const getMarketingOsPartnerToken = async (tenantId: string): Promise<string | null> => {
   if (!isEnabled()) return null;
-
-  const password = buildTempPassword();
 
   try {
     const resp = await axios.post(
-      `${env.marketingOsApiBaseUrl}/auth/login`,
-      { email, password },
-      { timeout: 10000 }
+      `${env.marketingOsApiBaseUrl}/api/v1/tenants/${tenantId}/token`,
+      {},
+      {
+        headers: { 'x-api-key': env.marketingOsPartnerKey },
+        timeout: 10000,
+      }
     );
 
-    return resp.data?.token || resp.data?.data?.token || null;
+    return resp.data?.data?.token || null;
   } catch (error: any) {
-    console.warn('[MarketingOS] Login failed:', error?.response?.data?.message || error?.message);
+    console.warn('[MarketingOS] Failed to get partner token:', error?.response?.data?.message || error?.message);
     return null;
   }
 };
@@ -84,32 +77,37 @@ export const provisionClientInMarketingOs = async (
     };
   }
 
-  const tempPassword = buildTempPassword();
-
   try {
+    // We use the Partner API to create a tenant. 
+    // This will also create a User in Marketing OS (if the controller handles it) 
+    // or we might need to call register if the Partner API doesn't create a user.
+    // Given the previous code used /auth/register, let's see if we should stick to it 
+    // but without the password requirement if possible.
+    
+    // Actually, the new Partner API /tenants endpoint is better.
     const resp = await axios.post(
-      `${env.marketingOsApiBaseUrl}/auth/register`,
+      `${env.marketingOsApiBaseUrl}/api/v1/tenants`,
       {
-        tenantName: input.restaurantName,
-        userName: input.userName,
+        name: input.restaurantName,
         email: input.email,
-        password: tempPassword,
-        ...(env.marketingOsReferralCode ? { referralCode: env.marketingOsReferralCode } : {}),
+        metadata: {
+          provisionedBy: 'food-ordering-partner',
+          userName: input.userName,
+        },
       },
-      { timeout: 10000 }
+      {
+        headers: { 'x-api-key': env.marketingOsPartnerKey },
+        timeout: 10000,
+      }
     );
 
-    const token = resp.data?.token || resp.data?.data?.token || null;
+    const tenantId = resp.data?.data?.tenantId;
 
     return {
       attempted: true,
       provisioned: true,
       alreadyExists: false,
-      tempPassword,
-      token,
-      message: env.marketingOsReferralCode
-        ? 'Client provisioned in Marketing OS with partner referral.'
-        : 'Client provisioned in Marketing OS (no partner referral configured yet).',
+      message: `Client provisioned as tenant: ${tenantId}`,
     };
   } catch (error: any) {
     const apiMessage = error?.response?.data?.message || error?.response?.data?.error || error?.message;
@@ -120,7 +118,7 @@ export const provisionClientInMarketingOs = async (
         attempted: true,
         provisioned: false,
         alreadyExists: true,
-        message: 'Marketing OS user already exists for this email.',
+        message: 'Marketing OS tenant already exists for this email.',
       };
     }
 
@@ -192,3 +190,4 @@ export const completeMarketingOsEmbeddedSignup = async (
     return { success: false, error: apiMessage || 'Unknown error' };
   }
 };
+

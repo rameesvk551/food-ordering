@@ -8,10 +8,11 @@ import { AuthRequest } from '../middleware/auth';
 import { User } from '../models/User';
 import {
   provisionClientInMarketingOs,
-  loginToMarketingOs,
+  getMarketingOsPartnerToken,
   getMarketingOsEmbeddedConfig,
   completeMarketingOsEmbeddedSignup,
 } from '../services/marketing-os.service';
+
 import {
   sendWhatsAppMessage,
   sendInteractiveButtons,
@@ -571,12 +572,9 @@ export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promis
       hasToken: !!provisionResult.token 
     });
 
-    const token = provisionResult.token || (await loginToMarketingOs(user.email));
-    console.log('[getEmbeddedConfig] Token outcome:', { hasToken: !!token });
-
+    const token = await getMarketingOsPartnerToken(user.email);
     if (!token) {
-      console.error('[getEmbeddedConfig] Error: Failed to authenticate with Marketing OS.');
-      res.status(501).json({ error: 'Failed to authenticate with Marketing OS.' });
+      res.status(501).json({ error: 'Failed to authenticate session with provider.' });
       return;
     }
 
@@ -627,12 +625,12 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
       email: user.email,
     });
 
-    const token = provisionResult.token || (await loginToMarketingOs(user.email));
+    const token = await getMarketingOsPartnerToken(user.email);
     console.log('[completeEmbeddedSignup] Token result:', { hasToken: !!token });
 
     if (!token) {
-      console.error('[completeEmbeddedSignup] Error: Failed to authenticate with Marketing OS.');
-      res.status(500).json({ error: 'Failed to authenticate with Marketing OS for completion.' });
+      console.error('[completeEmbeddedSignup] Error: Failed to obtain Partner Token from Marketing OS.');
+      res.status(501).json({ error: 'Failed to authenticate with provider platform.' });
       return;
     }
 
