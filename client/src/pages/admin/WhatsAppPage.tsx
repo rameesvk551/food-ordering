@@ -68,14 +68,14 @@ const WhatsAppPage = () => {
     setSdkLoading(true);
 
     if (window.FB) {
-      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v21.0' });
+      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v19.0' });
       setSdkReady(true);
       setSdkLoading(false);
       return;
     }
 
     window.fbAsyncInit = function () {
-      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v21.0' });
+      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v19.0' });
       setSdkReady(true);
       setSdkLoading(false);
     };
@@ -108,10 +108,10 @@ const WhatsAppPage = () => {
     }
 
     const appId = embeddedConfig.appId;
-    const configId = embeddedConfig.configId || '1410044504170655'; // Fallback if not in config
+    const configId = embeddedConfig.configId;
     const redirectUri = embeddedConfig.redirectUri || `${window.location.origin}/auth/meta/callback`;
     const state = embeddedConfig.state || 'direct_oauth';
-    const scope = 'business_management,whatsapp_business_management,whatsapp_business_messaging';
+    const scope = 'whatsapp_business_management,whatsapp_business_messaging';
 
     const allowedMessageOrigins = new Set<string>([window.location.origin]);
     try {
@@ -134,7 +134,7 @@ const WhatsAppPage = () => {
     };
 
     const openOAuthPopupFallback = () => {
-      const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&display=popup`;
+      const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&display=popup`;
 
       // Open popup
       const width = 600;
