@@ -134,7 +134,12 @@ const WhatsAppPage = () => {
     };
 
     const openOAuthPopupFallback = () => {
-      const oauthUrl = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&response_type=code&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&display=popup`;
+      const extras = encodeURIComponent(JSON.stringify({
+        sessionInfoVersion: '3',
+        version: 'v3'
+      }));
+      // Tech Provider specific onboarding URL
+      const oauthUrl = `https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&extras=${extras}`;
 
       // Open popup
       const width = 600;
