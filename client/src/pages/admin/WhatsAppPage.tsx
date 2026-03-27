@@ -68,14 +68,14 @@ const WhatsAppPage = () => {
     setSdkLoading(true);
 
     if (window.FB) {
-      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v19.0' });
+      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v25.0' });
       setSdkReady(true);
       setSdkLoading(false);
       return;
     }
 
     window.fbAsyncInit = function () {
-      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v19.0' });
+      window.FB.init({ appId, cookie: true, xfbml: true, version: 'v25.0' });
       setSdkReady(true);
       setSdkLoading(false);
     };
@@ -98,6 +98,27 @@ const WhatsAppPage = () => {
   useEffect(() => {
     fetchStatus();
     fetchEmbeddedConfig();
+
+    // Session logging message event listener for Meta v4
+    const handleMetaMessage = (event: MessageEvent) => {
+      if (!event.origin.endsWith('facebook.com')) return;
+      try {
+        const data = typeof event.data === 'string' ? JSON.parse(event.data) : event.data;
+        if (data.type === 'WA_EMBEDDED_SIGNUP') {
+          console.log('[WhatsAppPage] Meta Embedded Signup Message:', data);
+          // If we have asset IDs, we can pre-populate or log them
+          if (data.event === 'FINISH') {
+            const { waba_id, phone_number_id } = data.data || {};
+            console.log(`[WhatsAppPage] Flow finished. WABA: ${waba_id}, Phone: ${phone_number_id}`);
+          }
+        }
+      } catch (err) {
+        // Not a JSON message or other error
+      }
+    };
+
+    window.addEventListener('message', handleMetaMessage);
+    return () => window.removeEventListener('message', handleMetaMessage);
   }, []);
 
   // ── Embedded Signup handler ──
@@ -135,8 +156,7 @@ const WhatsAppPage = () => {
 
     const openOAuthPopupFallback = () => {
       const extras = encodeURIComponent(JSON.stringify({
-        sessionInfoVersion: '3',
-        version: 'v3'
+        setup: {},
       }));
       // Tech Provider specific onboarding URL
       const oauthUrl = `https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&extras=${extras}`;
@@ -210,6 +230,9 @@ const WhatsAppPage = () => {
           response_type: 'code',
           override_default_response_type: true,
           scope,
+          extras: {
+            setup: {},
+          },
         }
       );
       return;
