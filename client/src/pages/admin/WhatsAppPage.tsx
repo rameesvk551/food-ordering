@@ -158,8 +158,8 @@ const WhatsAppPage = () => {
 
     const openOAuthPopupFallback = () => {
       const extrasJson = JSON.stringify({ setup: {} });
-      // Use the Direct URL pattern from Meta v4/v25.0 documentation
-      const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(configId)}&response_type=code&override_default_response_type=true&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&extras=${encodeURIComponent(extrasJson)}`;
+      // Using v21.0 exactly as per Meta v4 example documentation
+      const oauthUrl = `https://www.facebook.com/v21.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(configId)}&response_type=code&override_default_response_type=true&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&extras=${encodeURIComponent(extrasJson)}`;
       
       console.log('[WhatsAppPage] Opening Fallback OAuth Popup URL:', oauthUrl);
 
