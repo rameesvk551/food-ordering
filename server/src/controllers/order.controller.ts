@@ -19,7 +19,7 @@ export const getOrders = async (req: AuthRequest, res: Response): Promise<void> 
         .skip((pageNum - 1) * limitNum)
         .limit(limitNum)
         .lean(),
-      Order.countDocuments(filter),
+      Order.countDocuments(filter),//
     ]);
 
     res.json({
