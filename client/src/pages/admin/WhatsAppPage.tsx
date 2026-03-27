@@ -134,6 +134,8 @@ const WhatsAppPage = () => {
     const state = embeddedConfig.state || 'direct_oauth';
     const scope = 'whatsapp_business_management,whatsapp_business_messaging';
 
+    console.log('[WhatsAppPage] Embedded Signup Config:', { appId, configId, redirectUri, state });
+
     const allowedMessageOrigins = new Set<string>([window.location.origin]);
     try {
       allowedMessageOrigins.add(new URL(redirectUri).origin);
@@ -155,11 +157,11 @@ const WhatsAppPage = () => {
     };
 
     const openOAuthPopupFallback = () => {
-      const extras = encodeURIComponent(JSON.stringify({
-        setup: {},
-      }));
-      // Tech Provider specific onboarding URL
-      const oauthUrl = `https://business.facebook.com/messaging/whatsapp/onboard/?app_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(configId)}&state=${encodeURIComponent(state)}&extras=${extras}`;
+      const extrasJson = JSON.stringify({ setup: {} });
+      // Use the Direct URL pattern from Meta v4/v25.0 documentation
+      const oauthUrl = `https://www.facebook.com/v25.0/dialog/oauth?client_id=${encodeURIComponent(appId)}&config_id=${encodeURIComponent(configId)}&response_type=code&override_default_response_type=true&scope=${encodeURIComponent(scope)}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&extras=${encodeURIComponent(extrasJson)}`;
+      
+      console.log('[WhatsAppPage] Opening Fallback OAuth Popup URL:', oauthUrl);
 
       // Open popup
       const width = 600;
