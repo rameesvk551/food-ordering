@@ -3,6 +3,57 @@ import { Restaurant } from '../models/Restaurant';
 import { Customer } from '../models/Customer';
 import { Order } from '../models/Order';
 
+const sanitizePhoneNumber = (phoneNumber: string): string => phoneNumber.replace(/\D/g, '');
+
+// Get all available menu items across all active restaurants
+export const getAllRestaurantMenus = async (_req: Request, res: Response): Promise<void> => {
+  try {
+    const restaurants = await Restaurant.find({ isActive: true }).select(
+      'name slug phoneNumber menu'
+    );
+
+    const items = restaurants.flatMap((restaurant) => {
+      const whatsappNumber = sanitizePhoneNumber(restaurant.phoneNumber || '');
+      const whatsappUrl = whatsappNumber ? `https://wa.me/${whatsappNumber}` : '';
+
+      return restaurant.menu.flatMap((category) =>
+        category.items
+          .filter((item) => item.isAvailable)
+          .map((item) => ({
+            id: item._id,
+            name: item.name,
+            description: item.description,
+            price: item.price,
+            image: item.image,
+            category: category.name,
+            restaurant: {
+              id: restaurant._id,
+              name: restaurant.name,
+              slug: restaurant.slug,
+              phoneNumber: restaurant.phoneNumber,
+              whatsappUrl,
+            },
+          }))
+      );
+    });
+
+    res.json({
+      items,
+      restaurants: restaurants.map((restaurant) => ({
+        id: restaurant._id,
+        name: restaurant.name,
+        slug: restaurant.slug,
+        phoneNumber: restaurant.phoneNumber,
+        whatsappUrl: restaurant.phoneNumber
+          ? `https://wa.me/${sanitizePhoneNumber(restaurant.phoneNumber)}`
+          : '',
+      })),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch restaurant menus.' });
+  }
+};
+
 // Get restaurant by slug (public - for customer store page)
 export const getStoreBySlug = async (req: Request, res: Response): Promise<void> => {
   try {

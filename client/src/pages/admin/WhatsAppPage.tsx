@@ -185,15 +185,19 @@ const WhatsAppPage = () => {
 
     // Primary path: SDK login for Embedded Signup (more reliable than manual dialog URL)
     if (window.FB && sdkReady) {
+      console.log('[WhatsAppPage] Starting FB.login for Embedded Signup with sdkReady=true');
       window.FB.login(
-        async (response: any) => {
+        (response: any) => {
+          console.log('[WhatsAppPage] FB.login callback received response:', response);
           const code = response?.authResponse?.code;
           if (code) {
-            await completeWithCode(code);
+            console.log('[WhatsAppPage] Code received from FB.login SDK, completing...');
+            completeWithCode(code);
             return;
           }
 
           // If SDK flow is blocked or cancelled, fallback to explicit popup URL flow.
+          console.log('[WhatsAppPage] No code in FB.login response. Falling back to explicit popup URL flow.');
           openOAuthPopupFallback();
         },
         {
@@ -206,9 +210,11 @@ const WhatsAppPage = () => {
       return;
     }
 
+    console.warn('[WhatsAppPage] window.FB or sdkReady is not available. Falling back to explicit popup.');
     // Fallback path when SDK is not ready.
     openOAuthPopupFallback();
   }, [embeddedConfig, fetchStatus, showToast]);
+
 
   // ── Manual connect handler ──
   const handleManualConnect = async () => {

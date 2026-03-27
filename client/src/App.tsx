@@ -10,6 +10,7 @@ import MenuPage from './pages/admin/MenuPage';
 import WhatsAppPage from './pages/admin/WhatsAppPage';
 import MetaCallbackPage from './pages/auth/MetaCallbackPage';
 
+import DiscoverPage from './pages/customer/DiscoverPage';
 import StorePage from './pages/customer/StorePage';
 import OrderSuccessPage from './pages/customer/OrderSuccessPage';
 
@@ -33,11 +34,9 @@ const App = () => {
               <Route path="/auth/meta/callback" element={<MetaCallbackPage />} />
 
               {/* Customer Routes (slug-based per restaurant) */}
+              <Route path="/" element={<DiscoverPage />} />
               <Route path="/:slug" element={<StorePage />} />
               <Route path="/:slug/success" element={<OrderSuccessPage />} />
-
-              {/* Default redirect */}
-              <Route path="/" element={<Navigate to="/admin/login" replace />} />
             </Routes>
           </CartProvider>
         </AuthProvider>
