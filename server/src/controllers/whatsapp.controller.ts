@@ -599,13 +599,16 @@ export const getEmbeddedConfig = async (req: AuthRequest, res: Response): Promis
 export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): Promise<void> => {
   console.log('[completeEmbeddedSignup] Called for restaurant:', req.user?.restaurantId);
   try {
-    const { code } = req.body;
+    const { code, state } = req.body;
+    console.log('[completeEmbeddedSignup] Received code:', code?.substring(0, 10), 'state:', state?.substring(0, 10));
 
-    if (!code) {
-      console.error('[completeEmbeddedSignup] Error: Authorization code missing in request body.');
-      res.status(400).json({ error: 'Authorization code is required.' });
+
+    if (!code || !state) {
+      console.error('[completeEmbeddedSignup] Error: Authorization code or state missing in request body.', { hasCode: !!code, hasState: !!state });
+      res.status(400).json({ error: 'Authorization code and state are required.' });
       return;
     }
+
 
     const user = await User.findById(req.user!.userId).select('email name');
     const restaurant = await Restaurant.findById(req.user!.restaurantId);
@@ -636,8 +639,9 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
     }
 
     // Step 2: Pass code to Marketing OS to complete setup
-    console.log('[completeEmbeddedSignup] Sending authorization code to Marketing OS...');
-    const completeResult = await completeMarketingOsEmbeddedSignup(token, code);
+    console.log('[completeEmbeddedSignup] Sending authorization code and state to Marketing OS...');
+    const completeResult = await completeMarketingOsEmbeddedSignup(token, code, state);
+
     console.log('[completeEmbeddedSignup] Signup completion result:', completeResult);
 
     if (!completeResult.success) {
