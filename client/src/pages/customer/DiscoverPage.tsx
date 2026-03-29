@@ -35,122 +35,6 @@ interface DiscoverItem {
   restaurant: DiscoverRestaurant;
 }
 
-const DUMMY_RESTAURANTS: DiscoverRestaurant[] = [
-  {
-    id: 'r1',
-    name: 'Rose Garden Restaurant',
-    slug: 'rose-garden-restaurant',
-    phoneNumber: '9876543210',
-    whatsappUrl: 'https://wa.me/919876543210',
-  },
-  {
-    id: 'r2',
-    name: 'Burger Bistro',
-    slug: 'burger-bistro',
-    phoneNumber: '9123456780',
-    whatsappUrl: 'https://wa.me/919123456780',
-  },
-  {
-    id: 'r3',
-    name: 'Spicy Treat Kitchen',
-    slug: 'spicy-treat-kitchen',
-    phoneNumber: '9988776655',
-    whatsappUrl: 'https://wa.me/919988776655',
-  },
-];
-
-const DUMMY_ITEMS: DiscoverItem[] = [
-  {
-    id: 'i1',
-    name: 'Classic Burger',
-    description: 'Juicy grilled patty with lettuce, tomato, and house sauce.',
-    price: 220,
-    image: 'https://images.unsplash.com/photo-1568901346375-23c9450c58cd?auto=format&fit=crop&w=900&q=80',
-    category: 'Burger',
-    restaurant: DUMMY_RESTAURANTS[1],
-  },
-  {
-    id: 'i2',
-    name: 'Pepperoni Pizza',
-    description: 'Stone-baked pizza loaded with pepperoni and mozzarella.',
-    price: 420,
-    image: 'https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=900&q=80',
-    category: 'Pizza',
-    restaurant: DUMMY_RESTAURANTS[0],
-  },
-  {
-    id: 'i3',
-    name: 'Chicken Biryani',
-    description: 'Fragrant basmati rice layered with spiced chicken.',
-    price: 320,
-    image: 'https://images.unsplash.com/photo-1633945274405-b6c8069047b0?auto=format&fit=crop&w=900&q=80',
-    category: 'Biryani',
-    restaurant: DUMMY_RESTAURANTS[2],
-  },
-  {
-    id: 'i4',
-    name: 'Veg Pasta Alfredo',
-    description: 'Creamy alfredo pasta with mushrooms and herbs.',
-    price: 280,
-    image: 'https://images.unsplash.com/photo-1645112411341-6c4fd023714a?auto=format&fit=crop&w=900&q=80',
-    category: 'Italian',
-    restaurant: DUMMY_RESTAURANTS[0],
-  },
-  {
-    id: 'i5',
-    name: 'Crispy Fried Chicken',
-    description: 'Golden fried chicken with signature spice mix.',
-    price: 260,
-    image: 'https://images.unsplash.com/photo-1626645738196-c2a7c87a8f58?auto=format&fit=crop&w=900&q=80',
-    category: 'Fast Food',
-    restaurant: DUMMY_RESTAURANTS[2],
-  },
-  {
-    id: 'i6',
-    name: 'Loaded Sandwich',
-    description: 'Toasted sandwich with cheese, chicken, and veggies.',
-    price: 180,
-    image: 'https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=900&q=80',
-    category: 'Sandwich',
-    restaurant: DUMMY_RESTAURANTS[1],
-  },
-  {
-    id: 'i7',
-    name: 'Paneer Tikka Pizza',
-    description: 'Indian-style pizza topped with smoky paneer tikka.',
-    price: 390,
-    image: 'https://images.unsplash.com/photo-1593504049359-74330189a345?auto=format&fit=crop&w=900&q=80',
-    category: 'Pizza',
-    restaurant: DUMMY_RESTAURANTS[0],
-  },
-  {
-    id: 'i8',
-    name: 'Mutton Cutlets',
-    description: 'Crisp cutlets with soft center and mint dip.',
-    price: 310,
-    image: 'https://images.unsplash.com/photo-1603894584373-5ac82b2ae398?auto=format&fit=crop&w=900&q=80',
-    category: 'Cutlets',
-    restaurant: DUMMY_RESTAURANTS[2],
-  },
-  {
-    id: 'i9',
-    name: 'Masala Chaat Bowl',
-    description: 'Tangy street-style chaat with chutneys and crunch.',
-    price: 160,
-    image: 'https://images.unsplash.com/photo-1619096252214-ef06c45683e3?auto=format&fit=crop&w=900&q=80',
-    category: 'Chaat',
-    restaurant: DUMMY_RESTAURANTS[1],
-  },
-  {
-    id: 'i10',
-    name: 'Stuffed Paratha Platter',
-    description: 'Butter parathas served with curd and pickle.',
-    price: 190,
-    image: 'https://images.unsplash.com/photo-1631515243349-e0cb75fb8d3a?auto=format&fit=crop&w=900&q=80',
-    category: 'Paratha',
-    restaurant: DUMMY_RESTAURANTS[0],
-  },
-];
 
 const DiscoverPage = () => {
   const navigate = useNavigate();
@@ -170,19 +54,13 @@ const DiscoverPage = () => {
         const apiItems = response.data.items || [];
         const apiRestaurants = response.data.restaurants || [];
 
-        if (apiItems.length > 0) {
-          setItems(apiItems);
-          setRestaurants(apiRestaurants);
-          return;
-        }
-
-        // Fallback data for UI testing when backend has no seeded items yet.
-        setItems(DUMMY_ITEMS);
-        setRestaurants(DUMMY_RESTAURANTS);
-      } catch {
-        setItems(DUMMY_ITEMS);
-        setRestaurants(DUMMY_RESTAURANTS);
-        showToast('Using demo menu data for UI testing.', 'error');
+        setItems(apiItems);
+        setRestaurants(apiRestaurants);
+      } catch (error) {
+        console.error('Failed to fetch menus:', error);
+        showToast('Failed to load menu. Please try again later.', 'error');
+        setItems([]);
+        setRestaurants([]);
       } finally {
         setLoading(false);
       }
@@ -274,8 +152,8 @@ const DiscoverPage = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#dde1e6] py-4 px-2 md:px-4">
-      <main className="max-w-md mx-auto bg-[#f7f7f7] min-h-[calc(100vh-2rem)] rounded-[2rem] shadow-[0_20px_60px_rgba(15,23,42,0.18)] p-4 animate-fade-in">
+    <div className="min-h-screen py-4 px-2 md:px-4">
+      <main className="max-w-md mx-auto min-h-[calc(100vh-2rem)] p-4 animate-fade-in">
         <header>
           <div className="flex items-center justify-between">
             <button

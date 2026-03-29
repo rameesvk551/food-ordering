@@ -99,15 +99,6 @@ const StorePage = () => {
     );
   }, [restaurant]);
 
-  const coverImage = useMemo(() => {
-    if (!restaurant) return '';
-    for (const category of restaurant.menu) {
-      const itemWithImage = category.items.find((item) => item.isAvailable && item.image);
-      if (itemWithImage?.image) return itemWithImage.image;
-    }
-    return 'https://images.unsplash.com/photo-1541544181051-e46607c79d22?auto=format&fit=crop&w=1400&q=80';
-  }, [restaurant]);
-
   const selectedCategoryName = useMemo(() => {
     if (!restaurant || selectedCategory === 'all') return 'Popular Picks';
     return restaurant.menu.find((category) => category._id === selectedCategory)?.name || 'Popular Picks';
@@ -185,28 +176,27 @@ const StorePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#dde1e6] py-4 px-2 md:px-4">
-      <div className="max-w-md mx-auto bg-[#f7f7f7] min-h-[calc(100vh-2rem)] rounded-[2rem] shadow-[0_20px_60px_rgba(15,23,42,0.18)] overflow-hidden pb-24">
+    <div className="min-h-screen py-4 px-2 md:px-4">
+      <div className="max-w-md mx-auto min-h-[calc(100vh-2rem)] overflow-hidden pb-24">
         <div className="px-4 pt-4">
-          <div className="relative">
-            <img src={coverImage} alt={restaurant.name} className="w-full h-56 object-cover rounded-2xl" />
+          <div className="flex items-center justify-between">
             <button
               type="button"
               onClick={() => navigate('/')}
-              className="absolute top-3 left-3 w-10 h-10 rounded-full bg-white/95 text-[#1f2937] flex items-center justify-center shadow"
+              className="w-10 h-10 rounded-full bg-white/95 text-[#1f2937] flex items-center justify-center shadow"
             >
               <ArrowLeft className="w-4.5 h-4.5" />
             </button>
             <button
               type="button"
-              className="absolute top-3 right-3 w-10 h-10 rounded-full bg-white/95 text-[#1f2937] flex items-center justify-center shadow"
+              className="w-10 h-10 rounded-full bg-white/95 text-[#1f2937] flex items-center justify-center shadow"
             >
               <Ellipsis className="w-4.5 h-4.5" />
             </button>
           </div>
         </div>
 
-        <div className="px-4 pt-3">
+        <div className="px-4 pt-4">
           <div className="flex items-center gap-4 text-[13px] text-[#4b5563]">
             <span className="inline-flex items-center gap-1 font-semibold text-[#f97316]">
               <Star className="w-3.5 h-3.5 fill-[#f97316] text-[#f97316]" />
