@@ -1,21 +1,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Bike,
-  ChevronDown,
   ChevronRight,
   Clock3,
-  MapPin,
-  Menu,
   MessageCircle,
   Search,
-  ShoppingBag,
   Star,
   UtensilsCrossed,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import api from '../../services/api';
 import { useToast } from '../../components/ui/Toast';
-import { useCart } from '../../context/CartContext';
 
 interface DiscoverRestaurant {
   id: string;
@@ -39,7 +34,6 @@ interface DiscoverItem {
 const DiscoverPage = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { totalItems } = useCart();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [activeRestaurant, setActiveRestaurant] = useState('all');
@@ -154,57 +148,15 @@ const DiscoverPage = () => {
   return (
     <div className="min-h-screen py-4 px-2 md:px-4">
       <main className="max-w-md mx-auto min-h-[calc(100vh-2rem)] p-4 animate-fade-in">
-        <header>
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              className="w-10 h-10 rounded-full bg-[#eceff3] text-[#3c4553] flex items-center justify-center"
-            >
-              <Menu className="w-5 h-5" />
-            </button>
-
-            <div className="text-center">
-              <p className="text-[10px] uppercase tracking-[0.2em] font-bold text-[#ff7a1a]">Deliver To</p>
-              <button
-                type="button"
-                className="inline-flex items-center gap-1 text-xs font-semibold text-[#4b5563]"
-              >
-                <MapPin className="w-3.5 h-3.5 text-[#9aa2af]" />
-                Halal Lab Office
-                <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-            </div>
-
-            <button
-              type="button"
-              className="relative w-10 h-10 rounded-full bg-[#11172a] text-white flex items-center justify-center"
-              onClick={() => window.scrollTo({ top: 9999, behavior: 'smooth' })}
-            >
-              <ShoppingBag className="w-5 h-5" />
-              {totalItems > 0 && (
-                <span className="absolute -top-1 -right-1 min-w-[18px] h-[18px] rounded-full bg-[#ff7a1a] text-[10px] font-bold flex items-center justify-center px-1">
-                  {totalItems}
-                </span>
-              )}
-            </button>
-          </div>
-
-          <div className="mt-4">
-            <h1 className="text-[16px] text-[#4b5563]">
-              Hey Halal, <span className="text-[#111827] font-bold">Good Afternoon!</span>
-            </h1>
-          </div>
-
-          <div className="mt-3 relative">
-            <Search className="w-4 h-4 text-[#a4acb8] absolute left-4 top-1/2 -translate-y-1/2" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search dishes, restaurants"
-              className="w-full h-11 rounded-2xl bg-[#ececef] border border-transparent pl-11 pr-4 text-[13px] text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#ff9d57]"
-            />
-          </div>
-        </header>
+        <div className="relative">
+          <Search className="w-4 h-4 text-[#a4acb8] absolute left-4 top-1/2 -translate-y-1/2" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search dishes, restaurants"
+            className="w-full h-11 rounded-2xl bg-[#ececef] border border-transparent pl-11 pr-4 text-[13px] text-[#1f2937] placeholder:text-[#9ca3af] focus:outline-none focus:border-[#ff9d57]"
+          />
+        </div>
 
         <section className="mt-6">
           <div className="flex items-center justify-between mb-3">
