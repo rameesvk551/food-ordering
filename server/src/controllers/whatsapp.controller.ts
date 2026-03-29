@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import crypto from 'crypto';
 import { Restaurant } from '../models/Restaurant';
 import { Customer } from '../models/Customer';
 import { Order } from '../models/Order';
@@ -47,6 +48,19 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
     res.status(200).send('OK');
 
     const body = req.body;
+
+    // Verify signature if secret is configured
+    const signature = req.headers['x-marketing-os-signature'] as string;
+    if (env.marketingOsWebhookSecret && signature) {
+      const hmac = crypto.createHmac('sha256', env.marketingOsWebhookSecret);
+      const computed = `sha256=${hmac.update(JSON.stringify(body)).digest('hex')}`;
+      
+      if (signature !== computed) {
+        console.warn('[Webhook] Invalid signature received!');
+        res.status(401).send('Invalid signature');
+        return;
+      }
+    }
 
     if (!body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
       return;

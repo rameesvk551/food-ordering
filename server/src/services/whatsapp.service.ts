@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { Restaurant, IRestaurant } from '../models/Restaurant';
 import { decrypt } from '../utils/encryption';
+import { env } from '../config/env';
 
 const WHATSAPP_API_URL = 'https://graph.facebook.com/v18.0';
 
@@ -11,7 +12,7 @@ export const sendWhatsAppMessage = async (
   accessToken: string
 ): Promise<void> => {
   try {
-    const decryptedToken = decrypt(accessToken);
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -43,7 +44,7 @@ export const sendInteractiveButtons = async (
   footer?: string
 ): Promise<void> => {
   try {
-    const decryptedToken = decrypt(accessToken);
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -87,7 +88,7 @@ export const sendListMessage = async (
   footer?: string
 ): Promise<void> => {
   try {
-    const decryptedToken = decrypt(accessToken);
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -132,7 +133,7 @@ export const sendLocationRequest = async (
   accessToken: string
 ): Promise<void> => {
   try {
-    const decryptedToken = decrypt(accessToken);
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -169,7 +170,7 @@ export const sendProductListMessage = async (
   footer?: string
 ): Promise<void> => {
   try {
-    const decryptedToken = decrypt(accessToken);
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -207,7 +208,7 @@ export const sendOrderDetailsMessage = async (
   accessToken: string
 ): Promise<void> => {
   try {
-    const decryptedToken = decrypt(accessToken);
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
