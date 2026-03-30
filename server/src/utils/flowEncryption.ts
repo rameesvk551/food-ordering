@@ -43,7 +43,7 @@ export const decryptFlowRequest = (
   const encryptedData = flowDataBuffer.subarray(0, flowDataBuffer.length - authTagLength);
   const authTag = flowDataBuffer.subarray(flowDataBuffer.length - authTagLength);
 
-  const decipher = crypto.createDecipheriv('aes-256-gcm', decryptedAesKey, ivBuffer);
+  const decipher = crypto.createDecipheriv('aes-128-gcm', decryptedAesKey, ivBuffer);
   decipher.setAuthTag(authTag);
 
   let decryptedData = decipher.update(encryptedData);
@@ -74,7 +74,7 @@ export const encryptFlowResponse = (
     flippedIv[i] = ~initialVectorBuffer[i];
   }
 
-  const cipher = crypto.createCipheriv('aes-256-gcm', aesKeyBuffer, flippedIv);
+  const cipher = crypto.createCipheriv('aes-128-gcm', aesKeyBuffer, flippedIv);
   
   const responseStr = JSON.stringify(responseObj);
   let encrypted = cipher.update(responseStr, 'utf-8');

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { decryptFlowRequest, encryptFlowResponse } from '../utils/flowEncryption';
-import Restaurant from '../models/Restaurant';
+import { Restaurant } from '../models/Restaurant';
 
 export const handleFlowRequest = async (req: Request, res: Response) => {
   try {
@@ -12,8 +12,9 @@ export const handleFlowRequest = async (req: Request, res: Response) => {
 
     // Decrypt request
     const { decryptedBody, aesKeyBuffer, initialVectorBuffer } = decryptFlowRequest(
-      req.body,
-      process.env.WHATSAPP_FLOW_PRIVATE_KEY || ''
+      encrypted_aes_key,
+      encrypted_flow_data,
+      initial_vector
     );
 
     const { action, screen, data, flow_token } = decryptedBody;
@@ -37,7 +38,7 @@ export const handleFlowRequest = async (req: Request, res: Response) => {
     let responseData: any = {};
 
     if (action === 'INIT' || action === 'select_category') {
-      const categories = restaurant.categories.map(cat => ({
+      const categories = restaurant.menu.map((cat: any) => ({
         id: cat.name,
         title: cat.name,
         image: cat.image || 'https://via.placeholder.com/150'

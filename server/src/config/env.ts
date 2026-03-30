@@ -14,7 +14,9 @@ export const env = {
   marketingOsProvisionEnabled: String(process.env.MARKETING_OS_PROVISION_ENABLED).toLowerCase() === 'true',
   marketingOsWebhookSecret: process.env.MARKETING_OS_WEBHOOK_SECRET || '',
   nodeEnv: process.env.NODE_ENV || 'development',
-  whatsappFlowPrivateKey: process.env.WHATSAPP_FLOW_PRIVATE_KEY || '',
+  whatsappFlowPrivateKey: process.env.WHATSAPP_FLOW_PRIVATE_KEY?.startsWith('LS0t') 
+    ? Buffer.from(process.env.WHATSAPP_FLOW_PRIVATE_KEY, 'base64').toString('utf-8')
+    : process.env.WHATSAPP_FLOW_PRIVATE_KEY || '',
 };
 
 // Diagnostic Logging for Marketing OS
