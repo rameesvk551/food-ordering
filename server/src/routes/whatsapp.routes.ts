@@ -9,12 +9,14 @@ import {
   getEmbeddedConfig,
   completeEmbeddedSignup,
 } from '../controllers/whatsapp.controller';
+import { handleFlowRequest } from '../controllers/flow.controller';
 
 const router = Router();
 
 // Webhook routes (no auth - called by WhatsApp)
 router.get('/webhook', verifyWebhook);
 router.post('/webhook', handleWebhook);
+router.post('/flow', handleFlowRequest);
 
 // Protected routes
 router.post('/connect', authenticate, validateTenant, connectWhatsApp);

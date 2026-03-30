@@ -23,6 +23,7 @@ export interface IRestaurant extends Document {
   whatsappBusinessAccountId: string;
   whatsappPhoneNumberId: string;
   whatsappCatalogId: string;
+  whatsappFlowId?: string;
   accessToken: string;
   menu: IMenuCategory[];
   isActive: boolean;
@@ -51,6 +52,7 @@ const restaurantSchema = new Schema<IRestaurant>(
     whatsappBusinessAccountId: { type: String, default: '' },
     whatsappPhoneNumberId: { type: String, default: '', index: true },
     whatsappCatalogId: { type: String, default: '' },
+    whatsappFlowId: { type: String, default: '' },
     accessToken: { type: String, default: '' },
     menu: [menuCategorySchema],
     isActive: { type: Boolean, default: true },

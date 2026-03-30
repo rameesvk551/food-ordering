@@ -10,17 +10,17 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="space-y-1.5">
         {label && (
-          <label className="block text-sm font-semibold text-text-primary">
+          <label className="block text-sm font-semibold text-[#d9ccb8]">
             {label}
           </label>
         )}
         <input
           ref={ref}
           className={`
-            w-full px-4 py-2.5 rounded-xl border bg-white text-text-primary
-            placeholder:text-text-muted text-sm transition-all duration-200
-            focus:outline-none focus:ring-2 focus:ring-primary-500/20 focus:border-primary-500
-            ${error ? 'border-red-400 focus:ring-red-500/20 focus:border-red-500' : 'border-border'}
+            w-full px-4 py-2.5 rounded-xl border bg-[#11161e] text-[#f6ede0]
+            placeholder:text-[#7f7467] text-sm transition-all duration-200
+            focus:outline-none focus:ring-2 focus:ring-[#f2a63a]/25 focus:border-[#f2a63a]
+            ${error ? 'border-red-400 focus:ring-red-500/20 focus:border-red-500' : 'border-[#394250]'}
             ${className}
           `}
           {...props}

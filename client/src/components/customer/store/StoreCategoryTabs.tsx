@@ -19,8 +19,8 @@ const StoreCategoryTabs = ({
           onClick={() => onSelectCategory('all')}
           className={`px-4 py-2 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border ${
             selectedCategory === 'all'
-              ? 'bg-[#f98e1c] text-white border-[#f98e1c]'
-              : 'bg-white text-[#6b7280] border-[#e5e7eb]'
+              ? 'premium-pill-active'
+              : 'premium-pill hover:border-[#5b6472] hover:text-[#ded0bd]'
           }`}
         >
           All
@@ -33,8 +33,8 @@ const StoreCategoryTabs = ({
             onClick={() => onSelectCategory(category._id)}
             className={`px-4 py-2 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border ${
               selectedCategory === category._id
-                ? 'bg-[#f98e1c] text-white border-[#f98e1c]'
-                : 'bg-white text-[#6b7280] border-[#e5e7eb]'
+                ? 'premium-pill-active'
+                : 'premium-pill hover:border-[#5b6472] hover:text-[#ded0bd]'
             }`}
           >
             {category.name}

@@ -26,15 +26,15 @@ const Modal = ({ isOpen, onClose, title, children, size = 'md' }: ModalProps) =>
       />
       <div
         className={`
-          relative bg-white rounded-2xl shadow-2xl w-full ${sizeClasses[size]}
+          relative bg-gradient-to-b from-[#181d25] to-[#12171f] border border-[#384250] rounded-2xl shadow-2xl w-full ${sizeClasses[size]}
           animate-bounce-in overflow-hidden
         `}
       >
-        <div className="flex items-center justify-between p-5 border-b border-border">
-          <h3 className="text-lg font-bold text-text-primary">{title}</h3>
+        <div className="flex items-center justify-between p-5 border-b border-[#343c49]">
+          <h3 className="text-lg font-bold text-[#f6ede0]">{title}</h3>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors text-text-muted cursor-pointer"
+            className="p-1.5 rounded-lg hover:bg-[#262d38] transition-colors text-[#a89b88] cursor-pointer"
           >
             <X className="w-5 h-5" />
           </button>

@@ -126,6 +126,58 @@ export const sendListMessage = async (
   }
 };
 
+export const sendFlowMessage = async (
+  phoneNumber: string,
+  bodyText: string,
+  buttonText: string,
+  flowId: string,
+  flowToken: string, // Often passed as the restaurant ID so we know context in the webhook
+  phoneNumberId: string,
+  accessToken: string,
+  header?: string,
+  footer?: string
+): Promise<void> => {
+  try {
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'interactive',
+        interactive: {
+          type: 'flow',
+          header: header ? { type: 'text', text: header } : undefined,
+          body: { text: bodyText },
+          footer: footer ? { text: footer } : undefined,
+          action: {
+            name: 'flow',
+            parameters: {
+              flow_message_version: '3',
+              flow_token: flowToken,
+              flow_id: flowId,
+              flow_cta: buttonText,
+              flow_action: 'navigate',
+              flow_action_payload: {
+                screen: 'CATEGORIES'
+              }
+            }
+          }
+        }
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send flow message error:', error.response?.data || error.message);
+    throw new Error('Failed to send WhatsApp Flow message');
+  }
+};
+
 export const sendLocationRequest = async (
   phoneNumber: string,
   body: string,

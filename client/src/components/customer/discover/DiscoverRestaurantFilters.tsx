@@ -17,10 +17,10 @@ const DiscoverRestaurantFilters = ({
         <button
           type="button"
           onClick={() => onSelectRestaurant('all')}
-          className={`px-4 py-2 rounded-full text-[12px] font-semibold border whitespace-nowrap ${
+          className={`px-4 py-2 rounded-full text-[12px] font-semibold border whitespace-nowrap transition-all duration-200 ${
             activeRestaurant === 'all'
-              ? 'bg-[#ff7a1a] text-white border-[#ff7a1a]'
-              : 'bg-white text-[#6b7280] border-[#e5e7eb]'
+              ? 'premium-pill-active'
+              : 'premium-pill hover:border-[#5b6472] hover:text-[#ded0bd]'
           }`}
         >
           All Restaurants
@@ -31,10 +31,10 @@ const DiscoverRestaurantFilters = ({
             key={restaurant.id}
             type="button"
             onClick={() => onSelectRestaurant(restaurant.slug)}
-            className={`px-4 py-2 rounded-full text-[12px] font-semibold border whitespace-nowrap ${
+            className={`px-4 py-2 rounded-full text-[12px] font-semibold border whitespace-nowrap transition-all duration-200 ${
               activeRestaurant === restaurant.slug
-                ? 'bg-[#ff7a1a] text-white border-[#ff7a1a]'
-                : 'bg-white text-[#6b7280] border-[#e5e7eb]'
+                ? 'premium-pill-active'
+                : 'premium-pill hover:border-[#5b6472] hover:text-[#ded0bd]'
             }`}
           >
             {restaurant.name}

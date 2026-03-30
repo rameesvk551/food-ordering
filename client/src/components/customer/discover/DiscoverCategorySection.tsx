@@ -18,8 +18,8 @@ const DiscoverCategorySection = ({
   return (
     <section className="mt-6 lg:mt-0">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-[30px] lg:text-[38px] font-black text-[#1f2937] leading-none">All Categories</h2>
-        <button type="button" className="text-sm font-semibold text-[#4b5563] inline-flex items-center gap-1">
+        <h2 className="premium-title text-[34px] lg:text-[44px] font-semibold leading-none">All Categories</h2>
+        <button type="button" className="text-sm font-semibold text-[#b8aa95] inline-flex items-center gap-1 hover:text-[#f2a63a] transition-colors">
           See All
           <ChevronRight className="w-4 h-4" />
         </button>

@@ -24,7 +24,9 @@ import {
   formatMenuMessage,
   parseOrderFromMessage,
   getHelpMessage,
+  sendFlowMessage,
 } from '../services/whatsapp.service';
+import { createAndPublishFlow } from '../services/flow.service';
 
 
 // WhatsApp webhook verification (GET)
@@ -103,25 +105,27 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         const buttonId = interactive.button_reply.id;
 
         if (buttonId === 'view_menu') {
-          // Send category list
-          const sections = [{
-            title: 'Our Menu',
-            rows: restaurant.menu.map(cat => ({
-              id: `cat_${cat._id || cat.name}`,
-              title: cat.name
-            }))
-          }];
+          if (!restaurant.whatsappFlowId) {
+             await sendWhatsAppMessage(
+               customerPhone,
+               "Sorry, our interactive menu is currently being set up. Please try again later.",
+               restaurant.whatsappPhoneNumberId,
+               restaurant.accessToken
+             );
+             return;
+          }
 
-          await sendListMessage(
+          await sendFlowMessage(
             customerPhone,
-            'Choose a category 👇',
-            'Select Category',
-            sections,
+            'Browse our menu and order directly from here! 👇',
+            'Open Menu',
+            restaurant.whatsappFlowId,
+            restaurant._id.toString(), // Pass the restaurant ID as the flow token
             restaurant.whatsappPhoneNumberId,
             restaurant.accessToken,
-            '🍽️ Our Menu'
+            '🍽️ Interactive Menu'
           );
-          customer.whatsappFlowState = 'menu_category';
+          customer.whatsappFlowState = 'menu_flow';
           await customer.save();
           return;
         }
@@ -262,25 +266,19 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         }
 
         if (buttonId === 'edit_cart' || buttonId === 'add_more') {
-          // Send main categories
-          const sections = [{
-            title: 'Our Menu',
-            rows: restaurant.menu.map(cat => ({
-              id: `cat_${cat._id || cat.name}`,
-              title: cat.name
-            }))
-          }];
+          if (!restaurant.whatsappFlowId) return;
 
-          await sendListMessage(
+          await sendFlowMessage(
             customerPhone,
-            'Choose a category 👇',
-            'Select Category',
-            sections,
+            'Browse our menu and add more items! 👇',
+            'Open Menu',
+            restaurant.whatsappFlowId,
+            restaurant._id.toString(),
             restaurant.whatsappPhoneNumberId,
             restaurant.accessToken,
-            '🍽️ Our Menu'
+            '🍽️ Edit Order'
           );
-          customer.whatsappFlowState = 'menu_category';
+          customer.whatsappFlowState = 'menu_flow';
           await customer.save();
           return;
         }
@@ -294,6 +292,52 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           );
           return;
         }
+      }
+
+      // Handle Form payload return (nfm_reply) from Flows
+      if (interactive.type === 'nfm_reply') {
+        try {
+           const flowResponse = JSON.parse(interactive.nfm_reply.response_json);
+           if (flowResponse.action === 'checkout') {
+              const cartItems = flowResponse.cart_items; // e.g. ["item_id_1", "item_id_2"]
+              
+              const allItems = restaurant.menu.flatMap(c => c.items);
+              const processedCart = cartItems.map((itemId: string) => {
+                 const item = allItems.find(i => (i._id?.toString() || i.name) === itemId);
+                 return item ? {
+                   productId: item._id?.toString() || item.name,
+                   name: item.name,
+                   quantity: 1, // Flow currently just selects them, if flow had quantity we'd extract it
+                   price: item.price
+                 } : null;
+              }).filter((i: any) => i !== null);
+
+              if (processedCart.length > 0) {
+                 customer.whatsappCart = processedCart;
+                 await customer.save();
+
+                 const cartSummary = customer.whatsappCart
+                   .map((i: any) => `${i.name} x${i.quantity} - ₹${i.price * i.quantity}`)
+                   .join('\n');
+                 const total = customer.whatsappCart.reduce((sum: number, i: any) => sum + (i.price * i.quantity), 0);
+
+                await sendInteractiveButtons(
+                  customerPhone,
+                  `✅ Cart updated directly from the menu!\n\n🛒 *Your Cart*\n\n${cartSummary}\n\n-------------------\n*Total: ₹${total}*`,
+                  [
+                    { id: 'view_menu', title: '📱 Return to Menu' },
+                    { id: 'checkout', title: '🚀 Checkout' },
+                    { id: 'clear_cart', title: '❌ Clear' }
+                  ],
+                  restaurant.whatsappPhoneNumberId,
+                  restaurant.accessToken
+                );
+              }
+           }
+        } catch (e) {
+          console.error("Failed to parse flow nfm_reply", e);
+        }
+        return;
       }
 
       if (interactive.type === 'list_reply') {
@@ -679,6 +723,21 @@ export const completeEmbeddedSignup = async (req: AuthRequest, res: Response): P
       },
       { new: true }
     );
+
+    // Try to programmatically create and publish the Menu Flow for the new business account
+    let flowId = null;
+    if (completeResult.wabaId && completeResult.accessToken) {
+       console.log('[completeEmbeddedSignup] Creating and publishing WhatsApp Flow...');
+       flowId = await createAndPublishFlow(
+         completeResult.wabaId,
+         completeResult.accessToken,
+         restaurant.name
+       );
+       if (flowId) {
+          // You might want to save this flowId to the restaurant document
+          await Restaurant.findByIdAndUpdate(req.user!.restaurantId, { whatsappFlowId: flowId });
+       }
+    }
 
     console.log('[completeEmbeddedSignup] Successfully completed embedded signup.');
     res.json({

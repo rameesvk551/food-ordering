@@ -1,0 +1,161 @@
+{
+  "version": "5.0",
+  "data_api_version": "3.0",
+  "routing_model": {
+    "CATEGORIES": [
+      "ITEMS"
+    ],
+    "ITEMS": [
+      "CART",
+      "CATEGORIES"
+    ],
+    "CART": []
+  },
+  "screens": [
+    {
+      "id": "CATEGORIES",
+      "title": "Our Menu",
+      "terminal": false,
+      "data": {
+        "categories_list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "image": { "type": "string" }
+            }
+          }
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Choose a Category"
+          },
+          {
+            "type": "Image",
+            "src": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=600",
+            "height": 150,
+            "scale-type": "cover"
+          },
+          {
+            "type": "TextBody",
+            "text": "Select a category below to see our delicious offerings."
+          },
+          {
+            "type": "OptIn",
+            "label": "Categories",
+            "name": "selected_category_id",
+            "required": true,
+            "data-source": "${data.categories_list}",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action": "select_category",
+                "selected_category_id": "${form.selected_category_id}"
+              }
+            }
+          },
+          {
+            "type": "Footer",
+            "label": "Continue",
+            "on-click-action": {
+              "name": "navigate",
+              "next": "ITEMS",
+              "payload": {
+                "selected_category_id": "${form.selected_category_id}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "ITEMS",
+      "title": "Select Items",
+      "terminal": false,
+      "data": {
+        "category_name": { "type": "string" },
+        "items_list": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "price": { "type": "string" },
+              "numeric_price": { "type": "number" },
+              "image": { "type": "string" }
+            }
+          }
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "${data.category_name}"
+          },
+          {
+            "type": "CheckboxGroup",
+            "name": "cart_items",
+            "data-source": "${data.items_list}",
+            "label": "Select Items to Cart"
+          },
+          {
+            "type": "Footer",
+            "label": "Review Cart",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "action": "review_cart",
+                "cart_items": "${form.cart_items}"
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "id": "CART",
+      "title": "Review Cart",
+      "terminal": true,
+      "data": {
+        "cart_items": {
+          "type": "array",
+          "items": { "type": "string" }
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Checkout"
+          },
+          {
+            "type": "TextBody",
+            "text": "Click Complete to finalize your order. You have selected items in your cart."
+          },
+          {
+            "type": "Footer",
+            "label": "Complete Order",
+            "on-click-action": {
+              "name": "complete",
+              "payload": {
+                "action": "checkout",
+                "cart_items": "${data.cart_items}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

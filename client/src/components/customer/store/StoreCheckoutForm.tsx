@@ -58,21 +58,21 @@ const StoreCheckoutForm = ({
         />
       </div>
 
-      <div className="bg-surface-secondary rounded-xl p-4 space-y-2">
-        <h4 className="font-bold text-text-primary text-sm mb-2">Order Summary</h4>
+      <div className="bg-[#11161e] border border-[#343c49] rounded-xl p-4 space-y-2">
+        <h4 className="font-bold text-[#f6ede0] text-sm mb-2">Order Summary</h4>
         {cartItems.map((item) => (
           <div key={item.productId} className="flex justify-between text-sm">
-            <span className="text-text-secondary">{item.quantity}x {item.name}</span>
-            <span className="font-medium">Rs.{item.price * item.quantity}</span>
+            <span className="text-[#b8aa96]">{item.quantity}x {item.name}</span>
+            <span className="font-medium text-[#f6ede0]">Rs.{item.price * item.quantity}</span>
           </div>
         ))}
-        <div className="pt-2 mt-2 border-t border-border flex justify-between">
-          <span className="font-bold text-text-primary">Total</span>
-          <span className="font-bold text-primary-600 text-lg">Rs.{totalAmount}</span>
+        <div className="pt-2 mt-2 border-t border-[#343c49] flex justify-between">
+          <span className="font-bold text-[#f6ede0]">Total</span>
+          <span className="font-bold text-[#f2a63a] text-lg">Rs.{totalAmount}</span>
         </div>
       </div>
 
-      <Button onClick={onPlaceOrder} loading={placing} className="w-full" size="lg">
+      <Button onClick={onPlaceOrder} loading={placing} className="w-full" size="lg" variant="accent">
         Confirm Order - Rs.{totalAmount}
       </Button>
     </div>
