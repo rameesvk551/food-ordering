@@ -87,6 +87,16 @@ const StorePage = () => {
     return restaurant.menu.find((category) => category._id === selectedCategory)?.name || 'Popular Picks';
   }, [restaurant, selectedCategory]);
 
+  const heroImage = useMemo(() => {
+    if (!restaurant) return '';
+
+    const withImage = restaurant.menu
+      .flatMap((category) => category.items)
+      .find((item) => item.isAvailable && item.image);
+
+    return withImage?.image || '';
+  }, [restaurant]);
+
   const handleAddToCart = (item: MenuItem) => {
     addItem({ productId: item._id, name: item.name, price: item.price, image: item.image });
     setAddedItems((prev) => new Set(prev).add(item._id));
@@ -142,13 +152,15 @@ const StorePage = () => {
 
   if (loading) {
     return (
-      <div className="premium-shell min-h-screen">
-        <div className="skeleton h-52 w-full rounded-none" />
-        <div className="max-w-4xl mx-auto p-4 space-y-4 mt-4">
-          <div className="skeleton h-10 w-48" />
-          <div className="grid gap-4 grid-cols-2 md:grid-cols-3">
+      <div className="olive-store-shell min-h-screen px-2 py-3 sm:px-4">
+        <div className="olive-store-device mx-auto overflow-hidden">
+          <div className="skeleton h-56 w-full rounded-[26px]" />
+          <div className="p-4 space-y-4 mt-2">
+            <div className="skeleton h-10 w-48" />
+            <div className="grid gap-3 grid-cols-2">
             {Array.from({ length: 6 }).map((_, index) => <MenuCardSkeleton key={index} />)}
           </div>
+        </div>
         </div>
       </div>
     );
@@ -156,30 +168,40 @@ const StorePage = () => {
 
   if (notFound || !restaurant) {
     return (
-      <div className="premium-shell min-h-screen flex items-center justify-center">
+      <div className="olive-store-shell min-h-screen flex items-center justify-center px-4">
         <div className="text-center">
-          <UtensilsCrossed className="w-16 h-16 text-[#8f8578] mx-auto mb-4" />
-          <h2 className="text-xl font-bold text-[#f7efdf] mb-2">Restaurant Not Found</h2>
-          <p className="text-[#b5a998]">This restaurant page doesn't exist.</p>
+          <UtensilsCrossed className="w-16 h-16 text-[#4e6d58] mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-[#294436] mb-2">Restaurant Not Found</h2>
+          <p className="text-[#667c6e]">This restaurant page doesn't exist.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="premium-shell min-h-screen lg:py-4 lg:px-6 xl:px-8">
-      <div className="premium-panel w-full xl:max-w-7xl mx-auto min-h-screen lg:min-h-[calc(100vh-2rem)] rounded-none lg:rounded-[28px] pb-24 xl:grid xl:grid-cols-[320px_minmax(0,1fr)] xl:gap-10">
-        <div className="xl:sticky xl:top-6 xl:self-start">
-          <StoreTopBar onBack={() => navigate('/')} />
-          <StoreOverview restaurantName={restaurant.name} availableItemCount={availableItemCount} />
-          <StoreCategoryTabs
-            categories={restaurant.menu}
-            selectedCategory={selectedCategory}
-            onSelectCategory={setSelectedCategory}
-          />
+    <div className="olive-store-shell min-h-screen px-2 py-3 sm:px-4">
+      <div className="olive-store-device mx-auto pb-24">
+        <div className="olive-store-hero">
+          {heroImage ? (
+            <img src={heroImage} alt={restaurant.name} className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full bg-gradient-to-b from-[#5d7e67] to-[#385442]" />
+          )}
+
+          <div className="olive-store-hero-overlay" />
+          <div className="relative z-10">
+            <StoreTopBar onBack={() => navigate('/')} title={restaurant.name} />
+            <StoreCategoryTabs
+              categories={restaurant.menu}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
+          </div>
         </div>
 
-        <div className="px-4 mt-4 xl:mt-0 xl:px-0">
+        <StoreOverview restaurantName={restaurant.name} availableItemCount={availableItemCount} />
+
+        <div className="px-3 mt-2">
           <StoreMenuSection
             title={selectedCategoryName}
             items={filteredItems}

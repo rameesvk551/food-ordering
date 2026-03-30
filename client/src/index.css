@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Fraunces:opsz,wght@9..144,500;9..144,700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -92,4 +92,54 @@ body {
 .scrollbar-hide {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
+}
+
+.olive-store-shell {
+  background: #f3f4f6;
+}
+
+.olive-store-device {
+  max-width: 430px;
+  border-radius: 36px;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  box-shadow: 0 24px 48px rgba(17, 24, 39, 0.12);
+}
+
+.olive-store-hero {
+  position: relative;
+  height: 306px;
+  border-radius: 36px 36px 20px 20px;
+  overflow: hidden;
+  background: #6b7280;
+}
+
+.olive-store-hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(17, 24, 39, 0.36) 0%,
+    rgba(17, 24, 39, 0.06) 40%,
+    rgba(17, 24, 39, 0.58) 100%
+  );
+}
+
+.olive-store-name {
+  font-family: 'Fraunces', 'Cormorant Garamond', serif;
+  color: #111827;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.olive-store-section-title {
+  font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  color: #374151;
+  font-size: 12px;
+  line-height: 1.1;
+  letter-spacing: 0.26em;
+  font-weight: 800;
+  text-transform: uppercase;
 }

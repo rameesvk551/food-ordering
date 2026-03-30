@@ -1,13 +1,12 @@
 {
-  "version": "5.0",
+  "version": "7.0",
   "data_api_version": "3.0",
   "routing_model": {
     "CATEGORIES": [
       "ITEMS"
     ],
     "ITEMS": [
-      "CART",
-      "CATEGORIES"
+      "CART"
     ],
     "CART": []
   },
@@ -26,7 +25,11 @@
               "title": { "type": "string" },
               "image": { "type": "string" }
             }
-          }
+          },
+          "__example__": [
+            { "id": "cat1", "title": "Pizza", "image": "https://example.com/piz.jpg" },
+            { "id": "cat2", "title": "Sushi", "image": "https://example.com/sus.jpg" }
+          ]
         }
       },
       "layout": {
@@ -47,25 +50,21 @@
             "text": "Select a category below to see our delicious offerings."
           },
           {
-            "type": "OptIn",
-            "label": "Categories",
+            "type": "RadioButtonsGroup",
             "name": "selected_category_id",
+            "label": "Categories",
             "required": true,
-            "data-source": "${data.categories_list}",
-            "on-click-action": {
-              "name": "data_exchange",
-              "payload": {
-                "action": "select_category",
-                "selected_category_id": "${form.selected_category_id}"
-              }
-            }
+            "data-source": "${data.categories_list}"
           },
           {
             "type": "Footer",
             "label": "Continue",
             "on-click-action": {
               "name": "navigate",
-              "next": "ITEMS",
+              "next": {
+                "type": "screen",
+                "name": "ITEMS"
+              },
               "payload": {
                 "selected_category_id": "${form.selected_category_id}"
               }
@@ -79,7 +78,10 @@
       "title": "Select Items",
       "terminal": false,
       "data": {
-        "category_name": { "type": "string" },
+        "category_name": { 
+            "type": "string",
+            "__example__": "Main Course"
+        },
         "items_list": {
           "type": "array",
           "items": {
@@ -92,7 +94,10 @@
               "numeric_price": { "type": "number" },
               "image": { "type": "string" }
             }
-          }
+          },
+          "__example__": [
+            { "id": "item1", "title": "Margherita", "description": "Classic", "price": "$12", "numeric_price": 12, "image": "https://example.com/i.jpg" }
+          ]
         }
       },
       "layout": {
@@ -129,7 +134,8 @@
       "data": {
         "cart_items": {
           "type": "array",
-          "items": { "type": "string" }
+          "items": { "type": "string" },
+          "__example__": ["item1", "item2"]
         }
       },
       "layout": {

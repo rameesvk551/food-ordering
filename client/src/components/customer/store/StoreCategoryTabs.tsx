@@ -13,17 +13,17 @@ const StoreCategoryTabs = ({
 }: StoreCategoryTabsProps) => {
   return (
     <div className="px-4 mt-3">
-      <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide xl:flex-wrap xl:overflow-visible">
+      <div className="flex gap-5 overflow-x-auto pb-3 scrollbar-hide">
         <button
           type="button"
           onClick={() => onSelectCategory('all')}
-          className={`px-4 py-2 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border ${
+          className={`whitespace-nowrap pb-1 text-[10px] uppercase tracking-[0.24em] transition-colors duration-200 ${
             selectedCategory === 'all'
-              ? 'premium-pill-active'
-              : 'premium-pill hover:border-[#5b6472] hover:text-[#ded0bd]'
+              ? 'text-[#f1f6ed] border-b border-[#f1f6ed]'
+              : 'text-[#d5dece]/80'
           }`}
         >
-          All
+          Menu
         </button>
 
         {categories.map((category) => (
@@ -31,10 +31,10 @@ const StoreCategoryTabs = ({
             key={category._id}
             type="button"
             onClick={() => onSelectCategory(category._id)}
-            className={`px-4 py-2 rounded-full text-[12px] font-semibold whitespace-nowrap transition-all duration-200 border ${
+            className={`whitespace-nowrap pb-1 text-[10px] uppercase tracking-[0.24em] transition-colors duration-200 ${
               selectedCategory === category._id
-                ? 'premium-pill-active'
-                : 'premium-pill hover:border-[#5b6472] hover:text-[#ded0bd]'
+                ? 'text-[#f1f6ed] border-b border-[#f1f6ed]'
+                : 'text-[#d5dece]/80'
             }`}
           >
             {category.name}
