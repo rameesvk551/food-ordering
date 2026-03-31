@@ -46,23 +46,23 @@ export const verifyWebhook = (req: Request, res: Response): void => {
 // WhatsApp webhook handler (POST)
 export const handleWebhook = async (req: Request, res: Response): Promise<void> => {
   try {
-    // Always respond 200 to WhatsApp quickly
-    res.status(200).send('OK');
-
     const body = req.body;
+    const signature = req.headers['x-marketing-os-signature'] as string;
 
     // Verify signature if secret is configured
-    const signature = req.headers['x-marketing-os-signature'] as string;
     if (env.marketingOsWebhookSecret && signature) {
       const hmac = crypto.createHmac('sha256', env.marketingOsWebhookSecret);
       const computed = `sha256=${hmac.update(JSON.stringify(body)).digest('hex')}`;
       
       if (signature !== computed) {
-        console.warn('[Webhook] Invalid signature received!');
+        console.warn('[Webhook] Invalid signature received! Computed:', computed.slice(0, 15) + '...', 'Received:', signature.slice(0, 15) + '...');
         res.status(401).send('Invalid signature');
         return;
       }
     }
+
+    // Response quickly to WhatsApp/Proxy after verification
+    res.status(200).send('OK');
 
     if (!body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0]) {
       return;
@@ -296,18 +296,27 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
       // Handle Form payload return (nfm_reply) from Flows
       if (interactive.type === 'nfm_reply') {
+        console.log(`[WhatsApp Webhook] Received Flow Completion (nfm_reply) from ${customerPhone}`);
         try {
            const flowResponse = JSON.parse(interactive.nfm_reply.response_json);
+           console.log('[WhatsApp Webhook] Flow Response JSON:', JSON.stringify(flowResponse, null, 2));
+
            if (flowResponse.action === 'checkout') {
-              const cartItems = flowResponse.cart_items; // e.g. ["item_id_1", "item_id_2"]
+              const cartItems = flowResponse.cart_items || []; // e.g. ["item_id_1", "item_id_2"]
+              console.log(`[WhatsApp Webhook] User selected ${cartItems.length} items from flow.`);
               
               const allItems = restaurant.menu.flatMap(c => c.items);
               const processedCart = cartItems.map((itemId: string) => {
                  const item = allItems.find(i => (i._id?.toString() || i.name) === itemId);
+                 if (item) {
+                   console.log(`[WhatsApp Webhook] Adding to cart: ${item.name} (${item.price})`);
+                 } else {
+                   console.warn(`[WhatsApp Webhook] Item ID not found in menu: ${itemId}`);
+                 }
                  return item ? {
                    productId: item._id?.toString() || item.name,
                    name: item.name,
-                   quantity: 1, // Flow currently just selects them, if flow had quantity we'd extract it
+                   quantity: 1,
                    price: item.price
                  } : null;
               }).filter((i: any) => i !== null);
@@ -315,6 +324,7 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               if (processedCart.length > 0) {
                  customer.whatsappCart = processedCart;
                  await customer.save();
+                 console.log(`[WhatsApp Webhook] Updated customer cart. Total items: ${processedCart.length}`);
 
                  const cartSummary = customer.whatsappCart
                    .map((i: any) => `${i.name} x${i.quantity} - ₹${i.price * i.quantity}`)
@@ -332,10 +342,14 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
                   restaurant.whatsappPhoneNumberId,
                   restaurant.accessToken
                 );
+              } else {
+                console.warn('[WhatsApp Webhook] No valid items found in flow response.');
               }
+           } else {
+             console.log(`[WhatsApp Webhook] Flow ended with non-checkout action: ${flowResponse.action}`);
            }
         } catch (e) {
-          console.error("Failed to parse flow nfm_reply", e);
+          console.error("[WhatsApp Webhook] Failed to process flow nfm_reply:", e);
         }
         return;
       }

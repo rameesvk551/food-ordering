@@ -10,13 +10,13 @@ const PHONE_NUM_ID = '919556244575947';
 const API_URL = 'https://graph.facebook.com/v18.0';
 
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
-MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAypkd/3wJSvSFFxl6aFJh
-RNV+tbdagkZGfwoMp1NQ8mubV1o7AemMwRvbnZiryJOdHEdHEvlvLMcRaRbXB8/+
-ayRq7MyRwh9m2NzQCkzzeUEKcRqqW/urM98HS3v9+VvlZ8BqjvBs2pTLAk718axp
-tVPi17+d07bsC2u4r6JczYsRywnQk0zDD1LZaIFLdtf7Kz7BdWHplmyIhTIeJIn0
-ciqLgjkOkEhIjSRKYg7OURXVPsxPK1/LR8IKL/Sjc3ecaM8GVDalDOiC7zcAWwDt
-cB8dbO1JsjoOjweRCnYDZsF2h22z3lUnAuXRPUq3rZlq09jBZQXN8nHVsixitUY/
-9wIDAQAB
+MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqBoQKPHYsUVfRGqVVfQR
+r/JIDIopf81yB6KiafweNecycV+rfjWcfIQYqeJQN1nBxLjLrIwOcOziblEsPftq
+pkfa5LXE4V0SRf/CHCd2dHmiYG2PNuREG4Eis1omeOoIG9IrR5aQIENRBiRyuWln
+MgPxHlhCRU4uy2Z4/FWMLrqZBAQ8wPZoFEremP7b9nkPbeyt3c4GmRKQy2DzhCDs
+Dr3IkRGGXVw5FK3P4JlqgLZ1NZt3/Pn/P0tpH/QM3gIqI8tCs5IiA4GVOuKhinKw
+ZkKQCMijQ7czXeu+Ap1ssWWdAka+MrNtMAboKB+80fF9VlZxZ5L1A0JkbsPsUu5u
+lwIDAQAB
 -----END PUBLIC KEY-----`;
 
 async function deploy() {
@@ -30,10 +30,10 @@ async function deploy() {
     }, { params: { access_token: ACCESS_TOKEN } });
     console.log('Public Key Uploaded Successfully.');
 
-    // 2. Create Flow (v12)
-    console.log('Creating flow: wayo_menu_v12...');
+    // 2. Create Flow (v16)
+    console.log('Creating flow: wayo_menu_v16...');
     const createRes = await axios.post(`${API_URL}/${WABA_ID}/flows`, {
-      name: 'wayo_menu_v12',
+      name: 'wayo_menu_v16',
       categories: ['OTHER']
     }, { params: { access_token: ACCESS_TOKEN } });
     

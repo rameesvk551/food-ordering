@@ -26,26 +26,19 @@ app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
-  message: { error: 'Too many requests. Please try again later.' },
-});
-app.use('/api/', limiter);
-
-// Body parsing
+// Body parsing middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
 app.use('/api/auth', authRoutes);
 app.use('/api/menu', menuRoutes);
-app.use('/api/orders', orderRoutes);
-app.use('/api/customers', customerRoutes);
+app.use('/api/order', orderRoutes);
+app.use('/api/customer', customerRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
-app.use('/api/store', publicRoutes);
+app.use('/api/public', publicRoutes);
 app.use('/api/upload', uploadRoutes);
+
 
 // Health check
 app.get('/api/health', (_req, res) => {
