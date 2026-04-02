@@ -528,9 +528,42 @@
             }
           ]
         },
+        "cart_review_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" },
+              "image": { "type": "string" },
+              "alt-text": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "id": "line_1",
+              "title": "Margherita",
+              "description": "Size: Regular â€¢ Qty: 2 â€¢ Total: INR 598",
+              "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=",
+              "alt-text": "Margherita"
+            }
+          ]
+        },
+        "cart_review_selection": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "__example__": ["line_1"]
+        },
+        "cart_has_items": {
+          "type": "boolean",
+          "__example__": true
+        },
         "cart_summary": {
           "type": "string",
-          "__example__": "1. Margherita (Regular) x2 - INR 598"
+          "__example__": "1. Margherita\nSize: Regular | Qty: 2 | Total: INR 598\n\n2. Coke\nQty: 1 | Total: INR 60"
         },
         "cart_total_label": {
           "type": "string",
@@ -538,7 +571,7 @@
         },
         "cart_count_label": {
           "type": "string",
-          "__example__": "1 item in cart"
+          "__example__": "3 items selected"
         }
       },
       "layout": {
@@ -553,8 +586,23 @@
             "text": "${data.cart_count_label}"
           },
           {
-            "type": "TextBody",
-            "text": "${data.cart_summary}"
+            "type": "Form",
+            "name": "cart_review_form",
+            "init-values": {
+              "cart_review_selection": "${data.cart_review_selection}"
+            },
+            "children": [
+              {
+                "type": "CheckboxGroup",
+                "name": "cart_review_selection",
+                "label": "Items in your cart",
+                "required": false,
+                "enabled": false,
+                "media-size": "regular",
+                "data-source": "${data.cart_review_items}",
+                "visible": "${data.cart_has_items}"
+              }
+            ]
           },
           {
             "type": "TextHeading",

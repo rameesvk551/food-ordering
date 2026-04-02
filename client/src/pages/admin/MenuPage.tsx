@@ -166,18 +166,41 @@ const MenuPage = () => {
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
 
     setUploading(true);
     try {
-      const { url } = await uploadImage(file);
-      setItemForm((prev) => ({ ...prev, images: [...prev.images, url] }));
-      showToast('Image uploaded successfully');
+      const uploadedUrls: string[] = [];
+
+      for (const file of files) {
+        try {
+          const { url } = await uploadImage(file);
+          if (url) {
+            uploadedUrls.push(url);
+          }
+        } catch {
+          // Continue uploading remaining files even if one fails.
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        setItemForm((prev) => {
+          const uniqueNewUrls = uploadedUrls.filter((url) => !prev.images.includes(url));
+          return { ...prev, images: [...prev.images, ...uniqueNewUrls] };
+        });
+
+        showToast(uploadedUrls.length === 1 ? 'Image uploaded successfully' : `${uploadedUrls.length} images uploaded successfully`);
+      }
+
+      if (uploadedUrls.length < files.length) {
+        showToast(`${files.length - uploadedUrls.length} image upload failed`, 'error');
+      }
     } catch {
       showToast('Image upload failed', 'error');
     } finally {
       setUploading(false);
+      e.target.value = '';
     }
   };
 
@@ -657,7 +680,7 @@ const MenuPage = () => {
               Item Images
             </label>
             <div className="space-y-3">
-              {itemForm.images.length > 0 ? (
+              {itemForm.images.length > 0 && (
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   {itemForm.images.map((image, index) => (
                     <div key={`${image}-${index}`} className="relative group">
@@ -691,22 +714,29 @@ const MenuPage = () => {
                     </div>
                   ))}
                 </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
-                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                    {uploading ? (
-                      <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-3" />
-                    ) : (
-                      <Upload className="w-8 h-8 text-primary-400 mb-3" />
-                    )}
-                    <p className="text-sm text-text-secondary">
-                      {uploading ? 'Uploading...' : 'Click to upload image'}
-                    </p>
-                    <p className="text-xs text-text-muted mt-1">Upload multiple images (PNG, JPG or WEBP)</p>
-                  </div>
-                  <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
-                </label>
               )}
+
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  {uploading ? (
+                    <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-3" />
+                  ) : (
+                    <Upload className="w-8 h-8 text-primary-400 mb-3" />
+                  )}
+                  <p className="text-sm text-text-secondary">
+                    {uploading ? 'Uploading...' : 'Click to upload image(s)'}
+                  </p>
+                  <p className="text-xs text-text-muted mt-1">Upload one or more images (PNG, JPG or WEBP)</p>
+                </div>
+                <input
+                  type="file"
+                  className="hidden"
+                  accept="image/*"
+                  multiple
+                  onChange={handleImageUpload}
+                  disabled={uploading}
+                />
+              </label>
               
               <div className="flex gap-2">
                 <div className="relative flex-1">

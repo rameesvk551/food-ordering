@@ -279,28 +279,60 @@ const buildCartPreview = (cartItems: FlowCartItem[]) => {
     const unitPrice = parseFloat(item.unit_price) || 0;
     return sum + quantity * unitPrice;
   }, 0);
+  const totalQuantity = cartItems.reduce(
+    (sum, item) => sum + toPositiveInt(item.quantity, 1),
+    0
+  );
 
   const summary = cartItems
     .map((item, index) => {
       const quantity = toPositiveInt(item.quantity, 1);
       const unitPrice = parseFloat(item.unit_price) || 0;
       const lineTotal = unitPrice * quantity;
-      const portionText = item.portion_label ? ` (${item.portion_label})` : '';
+      const detailParts = [
+        item.portion_label ? `Size: ${item.portion_label}` : '',
+        `Qty: ${quantity}`,
+        `Total: ${formatCurrency(lineTotal)}`,
+      ].filter(Boolean);
       const notesText = item.notes ? `\nNote: ${item.notes}` : '';
-      return `${index + 1}. ${item.name}${portionText} x${quantity} - ${formatCurrency(lineTotal)}${notesText}`;
+
+      return `${index + 1}. ${item.name}\n${detailParts.join(' | ')}${notesText}`;
     })
-    .join('\n');
+    .join('\n\n');
 
   return {
     total,
     summary,
-    countLabel: cartItems.length === 1 ? '1 item in cart' : `${cartItems.length} items in cart`,
+    countLabel: totalQuantity === 1 ? '1 item selected' : `${totalQuantity} items selected`,
     status:
       cartItems.length === 0
         ? ''
         : `${cartItems.length === 1 ? '1 item' : `${cartItems.length} items`} in cart • ${formatCurrency(total)}`,
   };
 };
+
+const buildCartReviewItems = async (restaurant: any, cartItems: FlowCartItem[]): Promise<FlowRadioOption[]> =>
+  Promise.all(
+    cartItems.map(async (item) => {
+      const quantity = toPositiveInt(item.quantity, 1);
+      const lineTotal = (parseFloat(item.unit_price) || 0) * quantity;
+      const itemMatch = findItemWithCategory(restaurant, item.product_id);
+      const descriptionParts = [
+        item.portion_label ? `Size: ${item.portion_label}` : '',
+        `Qty: ${quantity}`,
+        `Total: ${formatCurrency(lineTotal)}`,
+        item.notes ? `Note: ${normalizeText(item.notes, 40)}` : '',
+      ].filter(Boolean);
+
+      return {
+        id: item.line_id,
+        title: item.name,
+        description: descriptionParts.join(' â€¢ '),
+        image: await toFlowBase64Image(getItemPrimaryImage(itemMatch?.item), 'thumb'),
+        'alt-text': item.name,
+      };
+    })
+  );
 
 const buildCartLine = (
   item: IMenuItem,
@@ -523,14 +555,22 @@ const buildItemDetailResponse = async (
   };
 };
 
-const buildCartResponse = (category: IMenuCategory | null, cartItems: FlowCartItem[]) => {
+const buildCartResponse = async (
+  restaurant: any,
+  category: IMenuCategory | null,
+  cartItems: FlowCartItem[]
+) => {
   const cartPreview = buildCartPreview(cartItems);
+  const cartReviewItems = await buildCartReviewItems(restaurant, cartItems);
   return {
     screen: 'CART',
     data: {
       selected_category_id: getCategoryId(category),
       category_name: category?.name || 'Menu',
       cart_items: cartItems,
+      cart_review_items: cartReviewItems,
+      cart_review_selection: cartReviewItems.map((item) => item.id),
+      cart_has_items: cartItems.length > 0,
       cart_summary: cartPreview.summary || 'Your cart is empty. Use the back button to add an item.',
       cart_total_label: `Total • ${formatCurrency(cartPreview.total)}`,
       cart_count_label: cartPreview.countLabel,
@@ -689,7 +729,7 @@ export const handleFlowRequest = async (req: Request, res: Response) => {
 
     if (effectiveAction === 'REVIEW_CART') {
       const category = findMenuCategory(restaurant, selectedCategoryId, selectedCategoryName);
-      responseData = buildCartResponse(category, cartItems);
+      responseData = await buildCartResponse(restaurant, category, cartItems);
       const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
       return res.send(encryptedResponse);
     }
