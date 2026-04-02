@@ -17,6 +17,7 @@ export const env = {
   whatsappFlowPrivateKey: process.env.WHATSAPP_FLOW_PRIVATE_KEY?.startsWith('LS0t') 
     ? Buffer.from(process.env.WHATSAPP_FLOW_PRIVATE_KEY, 'base64').toString('utf-8')
     : process.env.WHATSAPP_FLOW_PRIVATE_KEY || '',
+  cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
 };
 
 // Diagnostic Logging for Marketing OS
@@ -28,4 +29,3 @@ if (env.nodeEnv === 'production' || env.marketingOsApiBaseUrl) {
     nodeEnv: env.nodeEnv
   });
 }
-

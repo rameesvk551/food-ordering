@@ -61,8 +61,10 @@ const StoreCheckoutForm = ({
       <div className="bg-[#11161e] border border-[#343c49] rounded-xl p-4 space-y-2">
         <h4 className="font-bold text-[#f6ede0] text-sm mb-2">Order Summary</h4>
         {cartItems.map((item) => (
-          <div key={item.productId} className="flex justify-between text-sm">
-            <span className="text-[#b8aa96]">{item.quantity}x {item.name}</span>
+          <div key={item.cartKey} className="flex justify-between text-sm">
+            <span className="text-[#b8aa96]">
+              {item.quantity}x {item.name}{item.portionName ? ` (${item.portionName})` : ''}
+            </span>
             <span className="font-medium text-[#f6ede0]">Rs.{item.price * item.quantity}</span>
           </div>
         ))}

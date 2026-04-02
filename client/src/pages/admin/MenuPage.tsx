@@ -8,20 +8,66 @@ import { MenuCardSkeleton } from '../../components/ui/Skeleton';
 import { Plus, Pencil, Trash2, FolderPlus, UtensilsCrossed, Upload, X } from 'lucide-react';
 import { uploadImage } from '../../services/api';
 
+interface PortionOption {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  isDefault?: boolean;
+}
+
 interface MenuItem {
   _id: string;
   name: string;
   description: string;
   price: number;
   image: string;
+  images?: string[];
   isAvailable: boolean;
+  portionOptions?: PortionOption[];
 }
 
 interface MenuCategory {
   _id: string;
   name: string;
+  image?: string;
   items: MenuItem[];
 }
+
+const createDefaultPortionOptions = (basePrice = 0): PortionOption[] => {
+  const safeBasePrice = Number.isFinite(basePrice) && basePrice > 0 ? basePrice : 0;
+  return [
+    {
+      id: 'quarter',
+      name: 'Quarter',
+      price: safeBasePrice > 0 ? Math.max(1, Math.round(safeBasePrice * 0.65)) : 0,
+      description: 'Light portion',
+      isDefault: false,
+    },
+    {
+      id: 'half',
+      name: 'Half',
+      price: safeBasePrice,
+      description: 'Most popular',
+      isDefault: true,
+    },
+    {
+      id: 'full',
+      name: 'Full',
+      price: safeBasePrice > 0 ? Math.max(1, Math.round(safeBasePrice * 1.8)) : 0,
+      description: 'Best for sharing',
+      isDefault: false,
+    },
+  ];
+};
+
+const normalizeItemImages = (item: MenuItem): string[] => {
+  if (Array.isArray(item.images) && item.images.length > 0) {
+    return item.images;
+  }
+
+  return item.image ? [item.image] : [];
+};
 
 const MenuPage = () => {
   const [menu, setMenu] = useState<MenuCategory[]>([]);
@@ -31,11 +77,15 @@ const MenuPage = () => {
   const [selectedCategoryId, setSelectedCategoryId] = useState('');
   const [editingItem, setEditingItem] = useState<MenuItem | null>(null);
   const [categoryName, setCategoryName] = useState('');
+  const [categoryImage, setCategoryImage] = useState('');
+  const [categoryImageUrlInput, setCategoryImageUrlInput] = useState('');
+  const [imageUrlInput, setImageUrlInput] = useState('');
   const [itemForm, setItemForm] = useState({
-    name: '', description: '', price: '', image: '',
+    name: '', description: '', price: '', images: [] as string[], portionOptions: createDefaultPortionOptions(0),
   });
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [uploadingCategoryImage, setUploadingCategoryImage] = useState(false);
   const { showToast } = useToast();
 
   const fetchMenu = async () => {
@@ -55,9 +105,14 @@ const MenuPage = () => {
     if (!categoryName.trim()) return;
     setSaving(true);
     try {
-      const res = await api.post('/menu/categories', { name: categoryName });
+      const res = await api.post('/menu/categories', {
+        name: categoryName,
+        image: categoryImage,
+      });
       setMenu(res.data.menu);
       setCategoryName('');
+      setCategoryImage('');
+      setCategoryImageUrlInput('');
       setShowCategoryModal(false);
       showToast('Category added!');
     } catch {
@@ -80,18 +135,32 @@ const MenuPage = () => {
   const openAddItem = (categoryId: string) => {
     setSelectedCategoryId(categoryId);
     setEditingItem(null);
-    setItemForm({ name: '', description: '', price: '', image: '' });
+    setImageUrlInput('');
+    setItemForm({
+      name: '',
+      description: '',
+      price: '',
+      images: [],
+      portionOptions: createDefaultPortionOptions(0),
+    });
     setShowItemModal(true);
   };
 
   const openEditItem = (categoryId: string, item: MenuItem) => {
     setSelectedCategoryId(categoryId);
     setEditingItem(item);
+    const basePrice = item.price || 0;
+    const existingOptions = Array.isArray(item.portionOptions) && item.portionOptions.length > 0
+      ? item.portionOptions
+      : createDefaultPortionOptions(basePrice);
+
+    setImageUrlInput('');
     setItemForm({
       name: item.name,
       description: item.description,
-      price: item.price.toString(),
-      image: item.image,
+      price: basePrice.toString(),
+      images: normalizeItemImages(item),
+      portionOptions: existingOptions,
     });
     setShowItemModal(true);
   };
@@ -103,7 +172,7 @@ const MenuPage = () => {
     setUploading(true);
     try {
       const { url } = await uploadImage(file);
-      setItemForm({ ...itemForm, image: url });
+      setItemForm((prev) => ({ ...prev, images: [...prev.images, url] }));
       showToast('Image uploaded successfully');
     } catch {
       showToast('Image upload failed', 'error');
@@ -112,15 +181,57 @@ const MenuPage = () => {
     }
   };
 
+  const handleCategoryImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingCategoryImage(true);
+    try {
+      const { url } = await uploadImage(file);
+      setCategoryImage(url);
+      setCategoryImageUrlInput('');
+      showToast('Category image uploaded successfully');
+    } catch {
+      showToast('Category image upload failed', 'error');
+    } finally {
+      setUploadingCategoryImage(false);
+    }
+  };
+
+  const addCategoryImageFromUrl = () => {
+    const url = categoryImageUrlInput.trim();
+    if (!url) {
+      return;
+    }
+    setCategoryImage(url);
+  };
+
   const saveItem = async () => {
     if (!itemForm.name || !itemForm.price) return;
     setSaving(true);
     try {
+      const basePrice = parseFloat(itemForm.price);
+      const cleanedPortions = itemForm.portionOptions
+        .map((option, index) => ({
+          id: option.id?.trim() || option.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `option-${index + 1}`,
+          name: option.name.trim(),
+          price: Number(option.price),
+          description: option.description?.trim() || '',
+          isDefault: Boolean(option.isDefault),
+        }))
+        .filter((option) => option.name && Number.isFinite(option.price) && option.price >= 0);
+
+      if (cleanedPortions.length > 0 && !cleanedPortions.some((option) => option.isDefault)) {
+        cleanedPortions[0].isDefault = true;
+      }
+
       const payload = {
         name: itemForm.name,
         description: itemForm.description,
-        price: parseFloat(itemForm.price),
-        image: itemForm.image,
+        price: basePrice,
+        images: itemForm.images,
+        image: itemForm.images[0] || '',
+        portionOptions: cleanedPortions,
       };
 
       let res;
@@ -137,6 +248,93 @@ const MenuPage = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const addImageFromUrl = () => {
+    const url = imageUrlInput.trim();
+    if (!url) {
+      return;
+    }
+
+    setItemForm((prev) => {
+      if (prev.images.includes(url)) {
+        return prev;
+      }
+
+      return { ...prev, images: [...prev.images, url] };
+    });
+    setImageUrlInput('');
+  };
+
+  const removeImage = (index: number) => {
+    setItemForm((prev) => ({
+      ...prev,
+      images: prev.images.filter((_, imageIndex) => imageIndex !== index),
+    }));
+  };
+
+  const setPrimaryImage = (index: number) => {
+    setItemForm((prev) => {
+      const selected = prev.images[index];
+      if (!selected) {
+        return prev;
+      }
+
+      const nextImages = [selected, ...prev.images.filter((_, imageIndex) => imageIndex !== index)];
+      return { ...prev, images: nextImages };
+    });
+  };
+
+  const addPortionOption = () => {
+    setItemForm((prev) => ({
+      ...prev,
+      portionOptions: [
+        ...prev.portionOptions,
+        {
+          id: `option-${prev.portionOptions.length + 1}`,
+          name: '',
+          price: Number(prev.price) || 0,
+          description: '',
+          isDefault: prev.portionOptions.length === 0,
+        },
+      ],
+    }));
+  };
+
+  const updatePortionOption = (index: number, field: keyof PortionOption, value: string | number | boolean) => {
+    setItemForm((prev) => ({
+      ...prev,
+      portionOptions: prev.portionOptions.map((option, optionIndex) => {
+        if (optionIndex !== index) {
+          return option;
+        }
+
+        return { ...option, [field]: value };
+      }),
+    }));
+  };
+
+  const setDefaultPortionOption = (index: number) => {
+    setItemForm((prev) => ({
+      ...prev,
+      portionOptions: prev.portionOptions.map((option, optionIndex) => ({
+        ...option,
+        isDefault: optionIndex === index,
+      })),
+    }));
+  };
+
+  const removePortionOption = (index: number) => {
+    setItemForm((prev) => {
+      const nextOptions = prev.portionOptions.filter((_, optionIndex) => optionIndex !== index);
+      if (nextOptions.length > 0 && !nextOptions.some((option) => option.isDefault)) {
+        nextOptions[0] = { ...nextOptions[0], isDefault: true };
+      }
+      return {
+        ...prev,
+        portionOptions: nextOptions,
+      };
+    });
   };
 
   const deleteItem = async (categoryId: string, itemId: string) => {
@@ -220,8 +418,8 @@ const MenuPage = () => {
                         !item.isAvailable ? 'opacity-60' : ''
                       }`}
                     >
-                      {item.image ? (
-                        <img src={item.image} alt={item.name} className="w-full h-36 object-cover" />
+                      {normalizeItemImages(item)[0] ? (
+                        <img src={normalizeItemImages(item)[0]} alt={item.name} className="w-full h-36 object-cover" />
                       ) : (
                         <div className="w-full h-36 bg-gradient-to-br from-primary-50 to-primary-100 flex items-center justify-center">
                           <UtensilsCrossed className="w-10 h-10 text-primary-300" />
@@ -234,6 +432,15 @@ const MenuPage = () => {
                         </div>
                         {item.description && (
                           <p className="text-xs text-text-muted mb-3 line-clamp-2">{item.description}</p>
+                        )}
+                        {Array.isArray(item.portionOptions) && item.portionOptions.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mb-3">
+                            {item.portionOptions.slice(0, 3).map((option) => (
+                              <span key={option.id} className="text-[11px] px-2 py-1 rounded-full bg-primary-50 text-primary-700">
+                                {option.name}: ₹{option.price}
+                              </span>
+                            ))}
+                          </div>
                         )}
                         <div className="flex justify-between items-center">
                           <button
@@ -276,7 +483,16 @@ const MenuPage = () => {
       )}
 
       {/* Add Category Modal */}
-      <Modal isOpen={showCategoryModal} onClose={() => setShowCategoryModal(false)} title="Add Category">
+      <Modal
+        isOpen={showCategoryModal}
+        onClose={() => {
+          setShowCategoryModal(false);
+          setCategoryName('');
+          setCategoryImage('');
+          setCategoryImageUrlInput('');
+        }}
+        title="Add Category"
+      >
         <div className="space-y-4">
           <Input
             label="Category Name"
@@ -284,6 +500,60 @@ const MenuPage = () => {
             value={categoryName}
             onChange={(e) => setCategoryName(e.target.value)}
           />
+          <div>
+            <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
+              Category Image
+            </label>
+            <div className="space-y-3">
+              {categoryImage ? (
+                <div className="relative group">
+                  <img
+                    src={categoryImage}
+                    alt="Category preview"
+                    className="w-full h-40 object-cover rounded-xl border border-border"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setCategoryImage('')}
+                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
+                  <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                    {uploadingCategoryImage ? (
+                      <div className="w-8 h-8 border-3 border-primary-200 border-t-primary-500 rounded-full animate-spin mb-3" />
+                    ) : (
+                      <Upload className="w-8 h-8 text-primary-400 mb-3" />
+                    )}
+                    <p className="text-sm text-text-secondary">
+                      {uploadingCategoryImage ? 'Uploading...' : 'Click to upload image'}
+                    </p>
+                    <p className="text-xs text-text-muted mt-1">PNG, JPG or WEBP (Max 5MB)</p>
+                  </div>
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept="image/*"
+                    onChange={handleCategoryImageUpload}
+                    disabled={uploadingCategoryImage}
+                  />
+                </label>
+              )}
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Or paste category image URL"
+                    value={categoryImageUrlInput}
+                    onChange={(e) => setCategoryImageUrlInput(e.target.value)}
+                  />
+                </div>
+                <Button type="button" variant="secondary" onClick={addCategoryImageFromUrl}>Add</Button>
+              </div>
+            </div>
+          </div>
           <Button onClick={addCategory} loading={saving} className="w-full">
             Add Category
           </Button>
@@ -317,24 +587,109 @@ const MenuPage = () => {
             value={itemForm.price}
             onChange={(e) => setItemForm({ ...itemForm, price: e.target.value })}
           />
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                Portion Pricing
+              </label>
+              <Button type="button" size="sm" variant="secondary" onClick={addPortionOption}>
+                Add Option
+              </Button>
+            </div>
+
+            {itemForm.portionOptions.length === 0 ? (
+              <div className="text-xs text-text-muted bg-gray-50 border border-dashed border-border rounded-xl p-3">
+                Add options like Quarter, Half, Full with separate prices.
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {itemForm.portionOptions.map((option, index) => (
+                  <div key={`${option.id}-${index}`} className="grid grid-cols-1 md:grid-cols-12 gap-2 p-3 border border-border rounded-xl bg-gray-50">
+                    <div className="md:col-span-3">
+                      <Input
+                        placeholder="Option name"
+                        value={option.name}
+                        onChange={(e) => updatePortionOption(index, 'name', e.target.value)}
+                      />
+                    </div>
+                    <div className="md:col-span-3">
+                      <Input
+                        type="number"
+                        placeholder="Price"
+                        value={option.price}
+                        onChange={(e) => updatePortionOption(index, 'price', Number(e.target.value) || 0)}
+                      />
+                    </div>
+                    <div className="md:col-span-4">
+                      <Input
+                        placeholder="Description"
+                        value={option.description || ''}
+                        onChange={(e) => updatePortionOption(index, 'description', e.target.value)}
+                      />
+                    </div>
+                    <div className="md:col-span-2 flex items-center gap-2 justify-end">
+                      <button
+                        type="button"
+                        onClick={() => setDefaultPortionOption(index)}
+                        className={`text-[11px] px-2.5 py-1 rounded-full border cursor-pointer ${
+                          option.isDefault
+                            ? 'bg-green-100 text-green-700 border-green-200'
+                            : 'bg-white text-text-muted border-border'
+                        }`}
+                      >
+                        Default
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removePortionOption(index)}
+                        className="p-2 rounded-lg hover:bg-red-50 text-text-muted hover:text-red-500 transition-colors cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           <div>
             <label className="block text-xs font-semibold text-text-secondary uppercase tracking-wider mb-2">
-              Item Image
+              Item Images
             </label>
             <div className="space-y-3">
-              {itemForm.image ? (
-                <div className="relative group">
-                  <img
-                    src={itemForm.image}
-                    alt="Preview"
-                    className="w-full h-40 object-cover rounded-xl border border-border"
-                  />
-                  <button
-                    onClick={() => setItemForm({ ...itemForm, image: '' })}
-                    className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X className="w-4 h-4" />
-                  </button>
+              {itemForm.images.length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                  {itemForm.images.map((image, index) => (
+                    <div key={`${image}-${index}`} className="relative group">
+                      <img
+                        src={image}
+                        alt={`Preview ${index + 1}`}
+                        className="w-full h-28 object-cover rounded-xl border border-border"
+                      />
+                      <div className="absolute left-2 top-2 text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-white">
+                        {index === 0 ? 'Primary' : `Image ${index + 1}`}
+                      </div>
+                      <div className="absolute right-2 top-2 flex gap-1">
+                        {index !== 0 && (
+                          <button
+                            type="button"
+                            onClick={() => setPrimaryImage(index)}
+                            className="p-1.5 bg-white/90 text-[#1f2937] rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                            title="Set as primary"
+                          >
+                            <Pencil className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => removeImage(index)}
+                          className="p-1.5 bg-red-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <label className="flex flex-col items-center justify-center w-full h-40 border-2 border-dashed border-gray-300 rounded-xl cursor-pointer hover:bg-gray-50 transition-colors">
@@ -347,7 +702,7 @@ const MenuPage = () => {
                     <p className="text-sm text-text-secondary">
                       {uploading ? 'Uploading...' : 'Click to upload image'}
                     </p>
-                    <p className="text-xs text-text-muted mt-1">PNG, JPG or WEBP (Max 5MB)</p>
+                    <p className="text-xs text-text-muted mt-1">Upload multiple images (PNG, JPG or WEBP)</p>
                   </div>
                   <input type="file" className="hidden" accept="image/*" onChange={handleImageUpload} disabled={uploading} />
                 </label>
@@ -356,11 +711,12 @@ const MenuPage = () => {
               <div className="flex gap-2">
                 <div className="relative flex-1">
                   <Input
-                    placeholder="Or paste image URL..."
-                    value={itemForm.image}
-                    onChange={(e) => setItemForm({ ...itemForm, image: e.target.value })}
+                    placeholder="Paste image URL and click Add"
+                    value={imageUrlInput}
+                    onChange={(e) => setImageUrlInput(e.target.value)}
                   />
                 </div>
+                <Button type="button" variant="secondary" onClick={addImageFromUrl}>Add</Button>
               </div>
             </div>
           </div>

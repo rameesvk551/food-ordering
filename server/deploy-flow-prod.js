@@ -7,7 +7,10 @@ const { MongoClient } = require('mongodb');
 const ACCESS_TOKEN = 'EAAhBw75WTTkBRHCIwbKk4jykfWf24WGhZBXqDm5NNioqpFIGu3aLb2I4ppXbdYqj6yZC1oZAjCnVSSW3DyV1CYZCQP067XEnodYA7rafiXO7YjcJg3NXpOFq1OSWZBiAzh75i8i6nZBcbwcCQ6kx6B2qCRGxoXbZCUPEqFbvETqAqfTCf0RgVtUGs1NpdPRNfQoudPE41WqeX0ZCIeyfDMkUIeOoUAhXZCkZBypZBjf';
 const WABA_ID = '864633239519648';
 const PHONE_NUM_ID = '919556244575947';
-const API_URL = 'https://graph.facebook.com/v18.0';
+const API_URL = 'https://graph.facebook.com/v19.0';
+const flowId = '1396455595617420'; // Wayo Flow
+const flowVersion = '27'; // v27: Category Images via NavigationList
+const flowName = `wayo_menu_v${flowVersion}`;
 
 const PUBLIC_KEY = `-----BEGIN PUBLIC KEY-----
 MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqBoQKPHYsUVfRGqVVfQR
@@ -24,16 +27,12 @@ async function deploy() {
     console.log('--- Starting Final Automated Deployment ---');
 
     // 1. Upload Public Key to Phone Number
-    console.log('Uploading Public Key to Phone Number...');
-    await axios.post(`${API_URL}/${PHONE_NUM_ID}/whatsapp_business_encryption`, {
-      business_public_key: PUBLIC_KEY
-    }, { params: { access_token: ACCESS_TOKEN } });
-    console.log('Public Key Uploaded Successfully.');
+    console.log('Skipping Public Key upload (already synchronized with EC2)...');
 
-    // 2. Create Flow (v16)
-    console.log('Creating flow: wayo_menu_v16...');
+    // 2. Create Flow
+    console.log(`Creating flow: ${flowName}...`);
     const createRes = await axios.post(`${API_URL}/${WABA_ID}/flows`, {
-      name: 'wayo_menu_v16',
+      name: flowName,
       categories: ['OTHER']
     }, { params: { access_token: ACCESS_TOKEN } });
     
@@ -55,12 +54,13 @@ async function deploy() {
     });
     console.log('Asset Uploaded Successfully.');
 
-    // 4. Update Endpoint
+    // 4. Update Endpoint (Correct Field: endpoint_uri)
     console.log('Configuring Data Endpoint...');
+    // IMPORTANT: Metadata updates must be sent to the Flow ID, not a sub-resource
     await axios.post(`${API_URL}/${flowId}`, {
-      endpoint_uri: 'https://api.food.wayon.in/api/whatsapp/flow'
+      endpoint_uri: 'https://api.app.wayon.in/api/whatsapp/flow'
     }, { params: { access_token: ACCESS_TOKEN } });
-    console.log('Endpoint Set Successfully.');
+    console.log('Endpoint Set SUCCESSFULLY.');
 
     // 5. Publish Flow
     console.log('Publishing Flow...');

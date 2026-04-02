@@ -9,11 +9,13 @@ interface StoreMenuCardProps {
 }
 
 const StoreMenuCard = ({ item, restaurantName, isAdded, onAdd }: StoreMenuCardProps) => {
+  const itemImage = item.image || item.images?.[0] || '';
+
   return (
     <article className="bg-[#f9f4e6] rounded-[14px] border border-[#ded6bd] px-2 py-2 shadow-[0_6px_12px_rgba(88,108,84,0.10)]">
       <div className="h-[58px] w-[58px] rounded-full overflow-hidden bg-[#dce4d6] border border-[#c8d0bf] mx-auto">
-        {item.image ? (
-          <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+        {itemImage ? (
+          <img src={itemImage} alt={item.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <UtensilsCrossed className="w-5 h-5 text-[#7a8b76]" />

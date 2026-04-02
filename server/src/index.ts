@@ -1,4 +1,5 @@
 import express from 'express';
+import path from 'path';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -27,7 +28,11 @@ app.use(helmet({
 }));
 
 // Body parsing middleware
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as any).rawBody = buf.toString('utf8');
+  },
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // API Routes
@@ -38,6 +43,10 @@ app.use('/api/customer', customerRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/upload', uploadRoutes);
+
+// Static files (uploads)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));
 
 
 // Health check

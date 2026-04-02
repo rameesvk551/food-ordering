@@ -54,16 +54,19 @@ const CartDrawer = ({ isOpen, onClose, onCheckout }: CartDrawerProps) => {
             </div>
           ) : (
             items.map((item) => (
-              <div key={item.productId} className="flex items-center gap-4 py-2">
+              <div key={item.cartKey} className="flex items-center gap-4 py-2">
                 <div className="flex-1 min-w-0">
                   <h4 className="font-semibold text-[#f6ede0] text-sm truncate">{item.name}</h4>
+                  {item.portionName && (
+                    <p className="text-[11px] text-[#9fb49f]">{item.portionName}</p>
+                  )}
                   <p className="text-[#f2a63a] font-bold text-sm">₹{item.price * item.quantity}</p>
                 </div>
 
                 {/* Quantity Controls */}
                 <div className="flex items-center gap-2 bg-[#1b212b] border border-[#323b48] rounded-xl p-1">
                   <button
-                    onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                    onClick={() => updateQuantity(item.cartKey, item.quantity - 1)}
                     className="w-8 h-8 rounded-lg bg-[#262e3a] shadow-sm flex items-center justify-center
                       hover:bg-[#2f3947] transition-colors btn-press cursor-pointer"
                   >
@@ -73,7 +76,7 @@ const CartDrawer = ({ isOpen, onClose, onCheckout }: CartDrawerProps) => {
                     {item.quantity}
                   </span>
                   <button
-                    onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                    onClick={() => updateQuantity(item.cartKey, item.quantity + 1)}
                     className="w-8 h-8 rounded-lg bg-[#262e3a] shadow-sm flex items-center justify-center
                       hover:bg-[#2f3947] transition-colors btn-press cursor-pointer"
                   >

@@ -1,11 +1,15 @@
 {
-  "version": "7.0",
+  "version": "7.3",
   "data_api_version": "3.0",
   "routing_model": {
     "CATEGORIES": [
       "ITEMS"
     ],
     "ITEMS": [
+      "ITEM_DETAILS",
+      "CART"
+    ],
+    "ITEM_DETAILS": [
       "CART"
     ],
     "CART": []
@@ -22,13 +26,52 @@
             "type": "object",
             "properties": {
               "id": { "type": "string" },
-              "title": { "type": "string" },
-              "image": { "type": "string" }
+              "main-content": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              },
+              "start": {
+                "type": "object",
+                "properties": {
+                  "image": { "type": "string" }
+                }
+              },
+              "on-click-action": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "payload": {
+                    "type": "object",
+                    "properties": {
+                      "intent": { "type": "string" },
+                      "selected_category_id": { "type": "string" }
+                    }
+                  }
+                }
+              }
             }
           },
           "__example__": [
-            { "id": "cat1", "title": "Pizza", "image": "https://example.com/piz.jpg" },
-            { "id": "cat2", "title": "Sushi", "image": "https://example.com/sus.jpg" }
+            {
+              "id": "cat_pizza",
+              "main-content": {
+                "title": "Pizza",
+                "description": "5 items"
+              },
+              "start": {
+                "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+              },
+              "on-click-action": {
+                "name": "data_exchange",
+                "payload": {
+                  "intent": "load_items",
+                  "selected_category_id": "cat_pizza"
+                }
+              }
+            }
           ]
         }
       },
@@ -36,53 +79,27 @@
         "type": "SingleColumnLayout",
         "children": [
           {
-            "type": "TextHeading",
-            "text": "Choose a Category"
-          },
-          {
-            "type": "Image",
-            "src": "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?auto=format&fit=crop&q=80&w=600",
-            "height": 150,
-            "scale-type": "cover"
-          },
-          {
-            "type": "TextBody",
-            "text": "Select a category below to see our delicious offerings."
-          },
-          {
-            "type": "RadioButtonsGroup",
-            "name": "selected_category_id",
-            "label": "Categories",
-            "required": true,
-            "data-source": "${data.categories_list}"
-          },
-          {
-            "type": "Footer",
-            "label": "Continue",
-            "on-click-action": {
-              "name": "navigate",
-              "next": {
-                "type": "screen",
-                "name": "ITEMS"
-              },
-              "payload": {
-                "selected_category_id": "${form.selected_category_id}"
-              }
-            }
+            "type": "NavigationList",
+            "name": "categories_nav",
+            "list-items": "${data.categories_list}"
           }
         ]
       }
     },
     {
       "id": "ITEMS",
-      "title": "Select Items",
+      "title": "Select Item",
       "terminal": false,
       "data": {
-        "category_name": { 
-            "type": "string",
-            "__example__": "Main Course"
+        "selected_category_id": {
+          "type": "string",
+          "__example__": "cat_pizza"
         },
-        "items_list": {
+        "category_name": {
+          "type": "string",
+          "__example__": "Pizza"
+        },
+        "item_options": {
           "type": "array",
           "items": {
             "type": "object",
@@ -90,14 +107,59 @@
               "id": { "type": "string" },
               "title": { "type": "string" },
               "description": { "type": "string" },
-              "price": { "type": "string" },
-              "numeric_price": { "type": "number" },
-              "image": { "type": "string" }
+              "image": { "type": "string" },
+              "alt-text": { "type": "string" }
             }
           },
           "__example__": [
-            { "id": "item1", "title": "Margherita", "description": "Classic", "price": "$12", "numeric_price": 12, "image": "https://example.com/i.jpg" }
+            {
+              "id": "item_margherita",
+              "title": "Margherita",
+              "description": "Fresh basil and mozzarella • From INR 299",
+              "image": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=",
+              "alt-text": "Margherita"
+            }
           ]
+        },
+        "cart_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "line_id": { "type": "string" },
+              "product_id": { "type": "string" },
+              "name": { "type": "string" },
+              "portion_id": { "type": "string" },
+              "portion_label": { "type": "string" },
+              "quantity": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "line_id": "line_1",
+              "product_id": "item_margherita",
+              "name": "Margherita",
+              "portion_id": "regular",
+              "portion_label": "Regular",
+              "quantity": "2",
+              "unit_price": "299",
+              "notes": "Less spicy"
+            }
+          ]
+        },
+        "cart_has_items": {
+          "type": "boolean",
+          "__example__": true
+        },
+        "cart_status": {
+          "type": "string",
+          "__example__": "2 items in cart • INR 598"
+        },
+        "screen_hint": {
+          "type": "string",
+          "__example__": "Added Margherita (Regular) x1 to cart."
         }
       },
       "layout": {
@@ -108,21 +170,318 @@
             "text": "${data.category_name}"
           },
           {
-            "type": "CheckboxGroup",
-            "name": "cart_items",
-            "data-source": "${data.items_list}",
-            "label": "Select Items to Cart"
+            "type": "TextCaption",
+            "text": "${data.cart_status}"
           },
           {
-            "type": "Footer",
-            "label": "Review Cart",
+            "type": "TextCaption",
+            "text": "${data.screen_hint}"
+          },
+          {
+            "type": "EmbeddedLink",
+            "text": "Review cart when ready",
+            "visible": "${data.cart_has_items}",
             "on-click-action": {
               "name": "data_exchange",
               "payload": {
-                "action": "review_cart",
-                "cart_items": "${form.cart_items}"
+                "intent": "review_cart",
+                "selected_category_id": "${data.selected_category_id}",
+                "cart_items": "${data.cart_items}"
               }
             }
+          },
+          {
+            "type": "Form",
+            "name": "items_form",
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "selected_item_id",
+                "label": "Tap an item to customize and keep shopping",
+                "required": true,
+                "data-source": "${data.item_options}",
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "intent": "load_item_detail",
+                    "selected_category_id": "${data.selected_category_id}",
+                    "selected_item_id": "${form.selected_item_id}",
+                    "cart_items": "${data.cart_items}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "ITEM_DETAILS",
+      "title": "Customize",
+      "terminal": false,
+      "data": {
+        "selected_category_id": {
+          "type": "string",
+          "__example__": "cat_pizza"
+        },
+        "category_name": {
+          "type": "string",
+          "__example__": "Pizza"
+        },
+        "selected_item_id": {
+          "type": "string",
+          "__example__": "item_margherita"
+        },
+        "item_name": {
+          "type": "string",
+          "__example__": "Margherita"
+        },
+        "item_description": {
+          "type": "string",
+          "__example__": "Fresh basil, tomato sauce and mozzarella."
+        },
+        "item_image": {
+          "type": "string",
+          "__example__": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="
+        },
+        "item_gallery": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "src": { "type": "string" },
+              "alt-text": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "src": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=",
+              "alt-text": "Margherita 1"
+            },
+            {
+              "src": "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII=",
+              "alt-text": "Margherita 2"
+            }
+          ]
+        },
+        "item_gallery_has_multiple": {
+          "type": "boolean",
+          "__example__": true
+        },
+        "item_gallery_hint": {
+          "type": "string",
+          "__example__": "Swipe to view more photos."
+        },
+        "item_price_hint": {
+          "type": "string",
+          "__example__": "Choose a portion. Prices start at INR 299"
+        },
+        "portion_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "id": "regular",
+              "title": "Regular • INR 299",
+              "description": "Best value"
+            },
+            {
+              "id": "large",
+              "title": "Large • INR 399",
+              "description": "Great for sharing"
+            }
+          ]
+        },
+        "quantity_options": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "title": { "type": "string" }
+            }
+          },
+          "__example__": [
+            { "id": "1", "title": "1" },
+            { "id": "2", "title": "2" }
+          ]
+        },
+        "selected_portion_id": {
+          "type": "string",
+          "__example__": "regular"
+        },
+        "selected_quantity": {
+          "type": "string",
+          "__example__": "1"
+        },
+        "selected_notes": {
+          "type": "string",
+          "__example__": "Less spicy"
+        },
+        "live_total_label": {
+          "type": "string",
+          "__example__": "Total • INR 299"
+        },
+        "cart_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "line_id": { "type": "string" },
+              "product_id": { "type": "string" },
+              "name": { "type": "string" },
+              "portion_id": { "type": "string" },
+              "portion_label": { "type": "string" },
+              "quantity": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "__example__": []
+        },
+        "cart_has_items": {
+          "type": "boolean",
+          "__example__": false
+        },
+        "cart_status": {
+          "type": "string",
+          "__example__": "1 item in cart • INR 299"
+        },
+        "just_added_to_cart": {
+          "type": "boolean",
+          "__example__": true
+        },
+        "add_more_hint": {
+          "type": "string",
+          "__example__": "Added to cart. Tap back to pick another item, or review your cart when ready."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextCaption",
+            "text": "${data.cart_status}"
+          },
+          {
+            "type": "EmbeddedLink",
+            "text": "Review cart when ready",
+            "visible": "${data.cart_has_items}",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "intent": "review_cart",
+                "selected_category_id": "${data.selected_category_id}",
+                "cart_items": "${data.cart_items}"
+              }
+            }
+          },
+          {
+            "type": "ImageCarousel",
+            "images": "${data.item_gallery}"
+          },
+          {
+            "type": "TextHeading",
+            "text": "${data.item_name}"
+          },
+          {
+            "type": "TextBody",
+            "text": "${data.item_description}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.item_price_hint}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.item_gallery_hint}",
+            "visible": "${data.item_gallery_has_multiple}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.add_more_hint}",
+            "visible": "${data.just_added_to_cart}"
+          },
+          {
+            "type": "Form",
+            "name": "item_detail_form",
+            "init-values": {
+              "portion": "${data.selected_portion_id}",
+              "quantity": "${data.selected_quantity}",
+              "notes": "${data.selected_notes}"
+            },
+            "children": [
+              {
+                "type": "RadioButtonsGroup",
+                "name": "portion",
+                "label": "Choose portion",
+                "required": true,
+                "data-source": "${data.portion_options}",
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "intent": "refresh_item_detail",
+                    "selected_category_id": "${data.selected_category_id}",
+                    "selected_item_id": "${data.selected_item_id}",
+                    "portion": "${form.portion}",
+                    "quantity": "${form.quantity}",
+                    "notes": "${form.notes}",
+                    "cart_items": "${data.cart_items}"
+                  }
+                }
+              },
+              {
+                "type": "Dropdown",
+                "name": "quantity",
+                "label": "Quantity",
+                "required": true,
+                "data-source": "${data.quantity_options}",
+                "on-select-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "intent": "refresh_item_detail",
+                    "selected_category_id": "${data.selected_category_id}",
+                    "selected_item_id": "${data.selected_item_id}",
+                    "portion": "${form.portion}",
+                    "quantity": "${form.quantity}",
+                    "notes": "${form.notes}",
+                    "cart_items": "${data.cart_items}"
+                  }
+                }
+              },
+              {
+                "type": "TextArea",
+                "name": "notes",
+                "label": "Notes for the kitchen (optional)"
+              },
+              {
+                "type": "TextHeading",
+                "text": "${data.live_total_label}"
+              },
+              {
+                "type": "Footer",
+                "label": "Add to Cart",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "intent": "add_to_cart",
+                    "selected_category_id": "${data.selected_category_id}",
+                    "selected_item_id": "${data.selected_item_id}",
+                    "portion": "${form.portion}",
+                    "quantity": "${form.quantity}",
+                    "notes": "${form.notes}",
+                    "cart_items": "${data.cart_items}"
+                  }
+                }
+              }
+            ]
           }
         ]
       }
@@ -131,11 +490,55 @@
       "id": "CART",
       "title": "Review Cart",
       "terminal": true,
+      "success": true,
       "data": {
+        "selected_category_id": {
+          "type": "string",
+          "__example__": "cat_pizza"
+        },
+        "category_name": {
+          "type": "string",
+          "__example__": "Pizza"
+        },
         "cart_items": {
           "type": "array",
-          "items": { "type": "string" },
-          "__example__": ["item1", "item2"]
+          "items": {
+            "type": "object",
+            "properties": {
+              "line_id": { "type": "string" },
+              "product_id": { "type": "string" },
+              "name": { "type": "string" },
+              "portion_id": { "type": "string" },
+              "portion_label": { "type": "string" },
+              "quantity": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "line_id": "line_1",
+              "product_id": "item_margherita",
+              "name": "Margherita",
+              "portion_id": "regular",
+              "portion_label": "Regular",
+              "quantity": "2",
+              "unit_price": "299",
+              "notes": "Less spicy"
+            }
+          ]
+        },
+        "cart_summary": {
+          "type": "string",
+          "__example__": "1. Margherita (Regular) x2 - INR 598"
+        },
+        "cart_total_label": {
+          "type": "string",
+          "__example__": "Total • INR 598"
+        },
+        "cart_count_label": {
+          "type": "string",
+          "__example__": "1 item in cart"
         }
       },
       "layout": {
@@ -143,19 +546,31 @@
         "children": [
           {
             "type": "TextHeading",
-            "text": "Checkout"
+            "text": "Review Cart"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.cart_count_label}"
           },
           {
             "type": "TextBody",
-            "text": "Click Complete to finalize your order. You have selected items in your cart."
+            "text": "${data.cart_summary}"
+          },
+          {
+            "type": "TextHeading",
+            "text": "${data.cart_total_label}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "Use the back arrow to add another item."
           },
           {
             "type": "Footer",
-            "label": "Complete Order",
+            "label": "Place Order",
             "on-click-action": {
               "name": "complete",
               "payload": {
-                "action": "checkout",
+                "intent": "checkout",
                 "cart_items": "${data.cart_items}"
               }
             }

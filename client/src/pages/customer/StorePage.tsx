@@ -11,14 +11,26 @@ import StoreTopBar from '../../components/customer/store/StoreTopBar';
 import type {
   CustomerInfo,
   DisplayMenuItem,
+  MenuPortionOption,
   MenuItem,
   Restaurant,
 } from '../../components/customer/types';
 import Modal from '../../components/ui/Modal';
+import Button from '../../components/ui/Button';
 import { MenuCardSkeleton } from '../../components/ui/Skeleton';
 import { useToast } from '../../components/ui/Toast';
 import { useCart } from '../../context/CartContext';
 import api from '../../services/api';
+
+const getItemDisplayImage = (item: Pick<MenuItem, 'image' | 'images'>) => item.image || item.images?.[0] || '';
+
+const getPortionOptions = (item: MenuItem): MenuPortionOption[] => {
+  if (Array.isArray(item.portionOptions) && item.portionOptions.length > 0) {
+    return item.portionOptions;
+  }
+
+  return [{ id: 'default', name: 'Standard', price: item.price, isDefault: true }];
+};
 
 const StorePage = () => {
   const { slug } = useParams<{ slug: string }>();
@@ -34,6 +46,8 @@ const StorePage = () => {
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [placing, setPlacing] = useState(false);
   const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
+  const [portionModalItem, setPortionModalItem] = useState<MenuItem | null>(null);
+  const [selectedPortionId, setSelectedPortionId] = useState('');
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '', phone: '', address: '', city: '', pincode: '',
   });
@@ -41,7 +55,7 @@ const StorePage = () => {
   useEffect(() => {
     const fetchStore = async () => {
       try {
-        const res = await api.get(`/store/${slug}`);
+        const res = await api.get(`/public/${slug}`);
         setRestaurant(res.data.restaurant);
       } catch (err: any) {
         if (err.response?.status === 404) setNotFound(true);
@@ -92,13 +106,23 @@ const StorePage = () => {
 
     const withImage = restaurant.menu
       .flatMap((category) => category.items)
-      .find((item) => item.isAvailable && item.image);
+      .find((item) => item.isAvailable && getItemDisplayImage(item));
 
-    return withImage?.image || '';
+    return withImage ? getItemDisplayImage(withImage) : '';
   }, [restaurant]);
 
-  const handleAddToCart = (item: MenuItem) => {
-    addItem({ productId: item._id, name: item.name, price: item.price, image: item.image });
+  const addItemWithPortion = (item: MenuItem, portion: MenuPortionOption) => {
+    const cartKey = `${item._id}::${portion.id}`;
+    addItem({
+      cartKey,
+      productId: item._id,
+      name: item.name,
+      price: portion.price,
+      image: getItemDisplayImage(item),
+      portionId: portion.id,
+      portionName: portion.name,
+    });
+
     setAddedItems((prev) => new Set(prev).add(item._id));
 
     setTimeout(() => {
@@ -108,6 +132,32 @@ const StorePage = () => {
         return next;
       });
     }, 600);
+
+    showToast(`Added ${item.name} (${portion.name})`, 'success');
+  };
+
+  const handleAddToCart = (item: MenuItem) => {
+    const options = getPortionOptions(item);
+    if (options.length <= 1) {
+      addItemWithPortion(item, options[0]);
+      return;
+    }
+
+    const defaultOption = options.find((option) => option.isDefault) || options[0];
+    setPortionModalItem(item);
+    setSelectedPortionId(defaultOption.id);
+  };
+
+  const confirmPortionSelection = () => {
+    if (!portionModalItem) {
+      return;
+    }
+
+    const options = getPortionOptions(portionModalItem);
+    const selected = options.find((option) => option.id === selectedPortionId) || options[0];
+    addItemWithPortion(portionModalItem, selected);
+    setPortionModalItem(null);
+    setSelectedPortionId('');
   };
 
   const handleCheckout = () => {
@@ -128,7 +178,7 @@ const StorePage = () => {
     setPlacing(true);
 
     try {
-      await api.post(`/store/${slug}/order`, {
+      await api.post(`/public/${slug}/order`, {
         customerName: customerInfo.name,
         customerPhone: customerInfo.phone,
         address: customerInfo.address,
@@ -137,6 +187,7 @@ const StorePage = () => {
         items: cartItems.map((item) => ({
           productId: item.productId,
           quantity: item.quantity,
+          portionId: item.portionId,
         })),
       });
 
@@ -229,6 +280,46 @@ const StorePage = () => {
           onFieldChange={handleCustomerInfoChange}
           onPlaceOrder={handlePlaceOrder}
         />
+      </Modal>
+
+      <Modal
+        isOpen={Boolean(portionModalItem)}
+        onClose={() => {
+          setPortionModalItem(null);
+          setSelectedPortionId('');
+        }}
+        title={portionModalItem ? `Choose Portion for ${portionModalItem.name}` : 'Choose Portion'}
+      >
+        {portionModalItem && (
+          <div className="space-y-3">
+            <p className="text-sm text-[#c8bba7]">Select your preferred size</p>
+            <div className="space-y-2">
+              {getPortionOptions(portionModalItem).map((option) => (
+                <button
+                  type="button"
+                  key={option.id}
+                  onClick={() => setSelectedPortionId(option.id)}
+                  className={`w-full text-left px-4 py-3 rounded-xl border transition-colors cursor-pointer ${
+                    selectedPortionId === option.id
+                      ? 'bg-[#273228] border-[#6db27d] text-[#eef7eb]'
+                      : 'bg-[#151b22] border-[#384250] text-[#d9ccb8] hover:bg-[#1a212b]'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-semibold">{option.name}</span>
+                    <span className="font-bold">Rs.{option.price}</span>
+                  </div>
+                  {option.description && (
+                    <p className="text-xs mt-1 text-[#a6b2a4]">{option.description}</p>
+                  )}
+                </button>
+              ))}
+            </div>
+            <Button className="w-full" onClick={confirmPortionSelection}>
+              Add To Cart
+            </Button>
+          </div>
+        )}
       </Modal>
     </div>
   );

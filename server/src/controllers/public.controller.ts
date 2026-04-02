@@ -5,6 +5,21 @@ import { Order } from '../models/Order';
 
 const sanitizePhoneNumber = (phoneNumber: string): string => phoneNumber.replace(/\D/g, '');
 
+const getDefaultPrice = (item: {
+  price: number;
+  portionOptions?: Array<{ price: number; isDefault?: boolean }>;
+}): number => {
+  if (!Array.isArray(item.portionOptions) || item.portionOptions.length === 0) {
+    return item.price;
+  }
+
+  const defaultOption = item.portionOptions.find((option) => option.isDefault);
+  return defaultOption?.price ?? item.portionOptions[0].price ?? item.price;
+};
+
+const getPrimaryItemImage = (item: { image?: string; images?: string[] }): string =>
+  item.image || item.images?.[0] || '';
+
 // Get all available menu items across all active restaurants
 export const getAllRestaurantMenus = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -23,8 +38,10 @@ export const getAllRestaurantMenus = async (_req: Request, res: Response): Promi
             id: item._id,
             name: item.name,
             description: item.description,
-            price: item.price,
-            image: item.image,
+            price: getDefaultPrice(item),
+            image: getPrimaryItemImage(item),
+            images: item.images || (item.image ? [item.image] : []),
+            portionOptions: item.portionOptions || [],
             category: category.name,
             restaurant: {
               id: restaurant._id,
@@ -122,13 +139,24 @@ export const placeWebOrder = async (req: Request, res: Response): Promise<void> 
       if (!menuItem) {
         throw new Error(`Item not found: ${item.productId}`);
       }
-      const itemTotal = menuItem.price * item.quantity;
+
+      const selectedPortion = Array.isArray(menuItem.portionOptions)
+        ? menuItem.portionOptions.find((option) => option.id === item.portionId)
+        : undefined;
+
+      const unitPrice = selectedPortion?.price ?? menuItem.price;
+      const itemTotal = unitPrice * item.quantity;
       totalAmount += itemTotal;
+
+      const nameWithPortion = selectedPortion
+        ? `${menuItem.name} (${selectedPortion.name})`
+        : menuItem.name;
+
       return {
         productId: item.productId,
-        name: menuItem.name,
+        name: nameWithPortion,
         quantity: item.quantity,
-        price: menuItem.price,
+        price: unitPrice,
       };
     });
 

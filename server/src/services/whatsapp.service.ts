@@ -135,10 +135,24 @@ export const sendFlowMessage = async (
   phoneNumberId: string,
   accessToken: string,
   header?: string,
-  footer?: string
+  footer?: string,
+  flowAction: 'navigate' | 'data_exchange' = 'navigate',
+  flowActionPayload?: Record<string, any>
 ): Promise<void> => {
   try {
     const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
+    const parameters: Record<string, any> = {
+      flow_message_version: '3',
+      flow_token: flowToken,
+      flow_id: flowId,
+      flow_cta: buttonText,
+    };
+
+    if (flowActionPayload) {
+      parameters.flow_action = flowAction;
+      parameters.flow_action_payload = flowActionPayload;
+    }
+
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -152,16 +166,7 @@ export const sendFlowMessage = async (
           footer: footer ? { text: footer } : undefined,
           action: {
             name: 'flow',
-            parameters: {
-              flow_message_version: '3',
-              flow_token: flowToken,
-              flow_id: flowId,
-              flow_cta: buttonText,
-              flow_action: 'navigate',
-              flow_action_payload: {
-                screen: 'CATEGORIES'
-              }
-            }
+            parameters,
           }
         }
       },
@@ -261,6 +266,15 @@ export const sendOrderDetailsMessage = async (
 ): Promise<void> => {
   try {
     const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
+    const getDisplayName = (item: any): string => {
+      const baseName = String(item?.name || '').trim();
+      const portionLabel = String(item?.portionLabel || item?.portion_label || '').trim();
+      if (!portionLabel || baseName.toLowerCase().includes(portionLabel.toLowerCase())) {
+        return baseName;
+      }
+      return `${baseName} (${portionLabel})`;
+    };
+
     await axios.post(
       `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
       {
@@ -289,7 +303,7 @@ export const sendOrderDetailsMessage = async (
                 catalog_id: order.restaurantId.whatsappCatalogId || '',
                 items: order.items.map((i: any) => ({
                   retailer_id: i.productId,
-                  name: i.name,
+                  name: getDisplayName(i),
                   amount: {
                     value: i.price * 100, // Smallest unit (cents/paise)
                     offset: 100,
@@ -406,4 +420,3 @@ export const getHelpMessage = (restaurantName: string): string => {
     `Example: *order 1 x 2* orders 2 of item #1`
   );
 };
-

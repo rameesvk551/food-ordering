@@ -24,14 +24,20 @@ export const decryptFlowRequest = (
     format: 'pem',
   });
 
-  const decryptedAesKey = crypto.privateDecrypt(
-    {
-      key: privateKey,
-      padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
-      oaepHash: 'sha256',
-    },
-    Buffer.from(encryptedAesKey, 'base64')
-  );
+  let decryptedAesKey;
+  try {
+    decryptedAesKey = crypto.privateDecrypt(
+      {
+        key: privateKey,
+        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+        oaepHash: 'sha256',
+      },
+      Buffer.from(encryptedAesKey, 'base64')
+    );
+  } catch (err) {
+    console.error('[Flow] Decryption failed! RSA Private Key error:', (err as Error).message);
+    throw err;
+  }
 
   // 2. Decrypt the flow data using the decrypted AES key and IV
   const flowDataBuffer = Buffer.from(encryptedFlowData, 'base64');

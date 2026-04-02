@@ -12,8 +12,18 @@ export interface DiscoverItem {
   description: string;
   price: number;
   image: string;
+  images?: string[];
+  portionOptions?: MenuPortionOption[];
   category: string;
   restaurant: DiscoverRestaurant;
+}
+
+export interface MenuPortionOption {
+  id: string;
+  name: string;
+  price: number;
+  description?: string;
+  isDefault?: boolean;
 }
 
 export interface DiscoverCategoryCardData {
@@ -37,7 +47,9 @@ export interface MenuItem {
   description: string;
   price: number;
   image: string;
+  images?: string[];
   isAvailable: boolean;
+  portionOptions?: MenuPortionOption[];
 }
 
 export interface DisplayMenuItem extends MenuItem {

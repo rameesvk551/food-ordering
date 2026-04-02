@@ -28,7 +28,7 @@ const DiscoverPage = () => {
   useEffect(() => {
     const fetchMenus = async () => {
       try {
-        const response = await api.get('/store/discover/menu-items');
+        const response = await api.get('/public/discover/menu-items');
         const apiItems = response.data.items || [];
 
         setItems(apiItems);
