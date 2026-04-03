@@ -224,7 +224,7 @@ const buildBrowserMenuUrl = (slug: string, phone: string, name: string): string 
     src: 'whatsapp',
   });
 
-  return `${safeBase}/${slug}?${query.toString()}`;
+  return `${safeBase}/restaurant/${slug}?${query.toString()}`;
 };
 
 

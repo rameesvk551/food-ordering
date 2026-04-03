@@ -37,6 +37,8 @@ const App = () => {
               <Route path="/" element={<DiscoverPage />} />
               <Route path="/:slug" element={<StorePage />} />
               <Route path="/:slug/success" element={<OrderSuccessPage />} />
+              <Route path="/restaurant/:slug" element={<StorePage />} />
+              <Route path="/restaurant/:slug/success" element={<OrderSuccessPage />} />
             </Routes>
           </CartProvider>
         </AuthProvider>

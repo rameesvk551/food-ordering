@@ -6,6 +6,7 @@ module.exports = {
       args: 'start',
       env: {
         NODE_ENV: 'production',
+        CLIENT_BASE_URL: 'https://food.wayon.in',
       },
       instances: 1,
       autorestart: true,
