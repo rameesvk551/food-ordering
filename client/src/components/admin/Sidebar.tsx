@@ -7,12 +7,14 @@ import {
   LogOut,
   LayoutDashboard,
   X,
+  Settings,
 } from 'lucide-react';
 
 const navItems = [
   { to: '/admin/orders', icon: ShoppingBag, label: 'Orders' },
   { to: '/admin/menu', icon: UtensilsCrossed, label: 'Menu' },
   { to: '/admin/whatsapp', icon: MessageCircle, label: 'WhatsApp' },
+  { to: '/admin/settings', icon: Settings, label: 'Settings' },
 ];
 
 interface SidebarProps {

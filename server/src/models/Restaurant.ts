@@ -41,8 +41,52 @@ export interface IRestaurant extends Document {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+  description?: string;
+  email?: string;
+  images?: string[];
+  logo?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
+  cuisineTypes?: string[];
+  businessHours?: {
+    [key: string]: IBusinessHours;
+  };
+  minDeliveryTime?: number;
+  maxDeliveryTime?: number;
+  minOrderValue?: number;
+  deliveryCharges?: number;
 }
 
+export interface IBusinessHours {
+  open: string;
+  close: string;
+  isClosed: boolean;
+}
+
+export interface IRestaurantSettings {
+  description?: string;
+  email?: string;
+  images?: string[];
+  logo?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
+  cuisineTypes?: string[];
+  businessHours?: {
+    [key: string]: IBusinessHours;
+  };
+  minDeliveryTime?: number;
+  maxDeliveryTime?: number;
+  minOrderValue?: number;
+  deliveryCharges?: number;
+}
 const menuPortionOptionSchema = new Schema<IMenuPortionOption>(
   {
     id: { type: String, required: true, trim: true },
@@ -83,6 +127,38 @@ const restaurantSchema = new Schema<IRestaurant>(
     accessToken: { type: String, default: '' },
     menu: [menuCategorySchema],
     isActive: { type: Boolean, default: true },
+   description: { type: String, default: '' },
+   email: { type: String, default: '' },
+   images: { type: [String], default: [] },
+   logo: { type: String, default: '' },
+   address: { type: String, default: '' },
+   city: { type: String, default: '' },
+   state: { type: String, default: '' },
+   zipCode: { type: String, default: '' },
+   latitude: { type: Number, default: 0 },
+   longitude: { type: Number, default: 0 },
+   cuisineTypes: { type: [String], default: [] },
+   businessHours: {
+     type: Map,
+     of: {
+       open: { type: String, default: '09:00' },
+       close: { type: String, default: '23:00' },
+       isClosed: { type: Boolean, default: false },
+     },
+     default: () => ({
+       Monday: { open: '09:00', close: '23:00', isClosed: false },
+       Tuesday: { open: '09:00', close: '23:00', isClosed: false },
+       Wednesday: { open: '09:00', close: '23:00', isClosed: false },
+       Thursday: { open: '09:00', close: '23:00', isClosed: false },
+       Friday: { open: '09:00', close: '23:00', isClosed: false },
+       Saturday: { open: '10:00', close: '00:00', isClosed: false },
+       Sunday: { open: '10:00', close: '23:00', isClosed: false },
+     }),
+   },
+   minDeliveryTime: { type: Number, default: 30 },
+   maxDeliveryTime: { type: Number, default: 60 },
+   minOrderValue: { type: Number, default: 0 },
+   deliveryCharges: { type: Number, default: 0 },
   },
   { timestamps: true }
 );

@@ -14,6 +14,7 @@ import whatsappRoutes from './routes/whatsapp.routes';
 import publicRoutes from './routes/public.routes';
 import uploadRoutes from './routes/upload.routes';
 
+import restaurantRoutes from './routes/restaurant.routes';
 const app = express();
 
 // CORS configuration
@@ -44,6 +45,7 @@ app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/upload', uploadRoutes);
 
+app.use('/api/restaurant', restaurantRoutes);
 // Static files (uploads)
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 app.use('/uploads', express.static(path.join(process.cwd(), 'uploads')));

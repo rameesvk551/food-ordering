@@ -8,6 +8,7 @@ import DashboardLayout from './components/admin/DashboardLayout';
 import OrdersPage from './pages/admin/OrdersPage';
 import MenuPage from './pages/admin/MenuPage';
 import WhatsAppPage from './pages/admin/WhatsAppPage';
+import SettingsPage from './pages/admin/SettingsPage';
 import MetaCallbackPage from './pages/auth/MetaCallbackPage';
 
 import DiscoverPage from './pages/customer/DiscoverPage';
@@ -29,6 +30,7 @@ const App = () => {
                 <Route path="orders" element={<OrdersPage />} />
                 <Route path="menu" element={<MenuPage />} />
                 <Route path="whatsapp" element={<WhatsAppPage />} />
+                 <Route path="settings" element={<SettingsPage />} />
               </Route>
 
               {/* OAuth Callbacks */}
