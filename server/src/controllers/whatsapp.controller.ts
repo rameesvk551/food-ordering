@@ -224,7 +224,7 @@ const buildBrowserMenuUrl = (slug: string, phone: string, name: string): string 
     src: 'whatsapp',
   });
 
-  return `${safeBase}/restaurant/${slug}?${query.toString()}`;
+  return `${safeBase}/${slug}?${query.toString()}`;
 };
 
 
@@ -440,9 +440,10 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               await customer.save();
 
               const browserMenuUrl = buildBrowserMenuUrl(restaurant.slug, customer.phoneNumber, customer.name);
-              await sendWhatsAppMessage(
+              await sendInteractiveButtons(
                 customerPhone,
-                `🌐 View menu in browser (auto-login):\n${browserMenuUrl}\n\nAnything you add there will sync here too.`,
+                'Want to open the same menu in browser too?',
+                [{ id: 'browser_menu', title: '🌐 Browser Menu' }],
                 restaurant.whatsappPhoneNumberId,
                 restaurant.accessToken
               );
@@ -626,6 +627,17 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           await sendWhatsAppMessage(
             customerPhone,
             '💬 Connecting you to our support team... One of our staff members will reply to you shortly. 🙏',
+            restaurant.whatsappPhoneNumberId,
+            restaurant.accessToken
+          );
+          return;
+        }
+
+        if (buttonId === 'browser_menu') {
+          const browserMenuUrl = buildBrowserMenuUrl(restaurant.slug, customer.phoneNumber, customer.name);
+          await sendWhatsAppMessage(
+            customerPhone,
+            `🌐 Open Browser Menu (auto-login):\n${browserMenuUrl}`,
             restaurant.whatsappPhoneNumberId,
             restaurant.accessToken
           );
@@ -859,10 +871,10 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         restaurant.accessToken
       );
 
-      const browserMenuUrl = buildBrowserMenuUrl(restaurant.slug, customer.phoneNumber, customer.name);
-      await sendWhatsAppMessage(
+      await sendInteractiveButtons(
         customerPhone,
-        `🍽️ Menu options:\n1) WhatsApp Menu: tap *View Menu* button above\n2) Browser Menu (auto-login):\n${browserMenuUrl}`,
+        'Want to open in browser with auto-login as well?',
+        [{ id: 'browser_menu', title: '🌐 Browser Menu' }],
         restaurant.whatsappPhoneNumberId,
         restaurant.accessToken
       );
