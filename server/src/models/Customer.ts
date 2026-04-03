@@ -7,6 +7,7 @@ export interface ICustomer extends Document {
   whatsappUserId: string;
   whatsappFlowState: string;
   whatsappCart: any[];
+  cartUpdatedAt: Date;
   pincode: string;
   city: string;
   district: string;
@@ -27,6 +28,7 @@ const customerSchema = new Schema<ICustomer>(
     whatsappUserId: { type: String, default: '' },
     whatsappFlowState: { type: String, default: 'idle' },
     whatsappCart: { type: Schema.Types.Mixed, default: [] },
+    cartUpdatedAt: { type: Date, default: Date.now },
     pincode: { type: String, default: '' },
     city: { type: String, default: '' },
     district: { type: String, default: '' },

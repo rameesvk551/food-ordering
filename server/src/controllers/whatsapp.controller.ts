@@ -206,6 +206,27 @@ const mapFlowCartItemsToWhatsappCart = (flowCartItems: any[], restaurant: any): 
     .filter((item: any) => item && item.productId && item.name);
 };
 
+const getCustomerCartItems = (customer: any): any[] => {
+  if (Array.isArray(customer?.whatsappCart)) return customer.whatsappCart;
+  return [];
+};
+
+const setCustomerCartItems = (customer: any, cartItems: any[]) => {
+  customer.whatsappCart = cartItems;
+  customer.cartUpdatedAt = new Date();
+};
+
+const buildBrowserMenuUrl = (slug: string, phone: string, name: string): string => {
+  const safeBase = env.clientBaseUrl.replace(/\/$/, '');
+  const query = new URLSearchParams({
+    wa_phone: phone,
+    wa_name: name || 'Customer',
+    src: 'whatsapp',
+  });
+
+  return `${safeBase}/${slug}?${query.toString()}`;
+};
+
 
 // WhatsApp webhook verification (GET)
 export const verifyWebhook = (req: Request, res: Response): void => {
@@ -417,6 +438,14 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
               customer.whatsappFlowState = 'menu_flow';
               await customer.save();
+
+              const browserMenuUrl = buildBrowserMenuUrl(restaurant.slug, customer.phoneNumber, customer.name);
+              await sendWhatsAppMessage(
+                customerPhone,
+                `🌐 View menu in browser (auto-login):\n${browserMenuUrl}\n\nAnything you add there will sync here too.`,
+                restaurant.whatsappPhoneNumberId,
+                restaurant.accessToken
+              );
               return;
             }
           } catch (flowError) {
@@ -474,7 +503,8 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         }
 
         if (buttonId === 'checkout') {
-          if (customer.whatsappCart.length === 0) {
+          const cartItems = getCustomerCartItems(customer);
+          if (cartItems.length === 0) {
             await sendWhatsAppMessage(
               customerPhone,
               '🛒 Your cart is empty! Please add some items first.',
@@ -512,8 +542,9 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
         if (buttonId === 'mode_pickup') {
           // Skip location, go to confirm
-          const itemsSummary = formatCartSummary(customer.whatsappCart);
-          const total = getCartTotal(customer.whatsappCart);
+          const cartItems = getCustomerCartItems(customer);
+          const itemsSummary = formatCartSummary(cartItems);
+          const total = getCartTotal(cartItems);
 
           await sendInteractiveButtons(
             customerPhone,
@@ -532,11 +563,12 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
         if (buttonId === 'confirm_order') {
           // Create real order
-          const total = getCartTotal(customer.whatsappCart);
+          const cartItems = getCustomerCartItems(customer);
+          const total = getCartTotal(cartItems);
           const order = new Order({
             restaurantId: restaurant._id,
             customerId: customer._id,
-            items: customer.whatsappCart,
+            items: cartItems,
             totalAmount: total,
             status: 'pending',
             source: 'whatsapp',
@@ -555,13 +587,13 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           );
 
           customer.whatsappFlowState = 'idle';
-          customer.whatsappCart = [];
+          setCustomerCartItems(customer, []);
           await customer.save();
           return;
         }
 
         if (buttonId === 'clear_cart') {
-          customer.whatsappCart = [];
+          setCustomerCartItems(customer, []);
           await customer.save();
           await sendWhatsAppMessage(
             customerPhone,
@@ -616,12 +648,12 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
               const processedCart = mapFlowCartItemsToWhatsappCart(cartItems, restaurant);
 
               if (processedCart.length > 0) {
-                 customer.whatsappCart = processedCart;
+                  setCustomerCartItems(customer, processedCart);
                  await customer.save();
                  console.log(`[WhatsApp Webhook] Updated customer cart. Total items: ${processedCart.length}`);
 
-                 const cartSummary = formatCartSummary(customer.whatsappCart);
-                 const total = getCartTotal(customer.whatsappCart);
+                  const cartSummary = formatCartSummary(getCustomerCartItems(customer));
+                  const total = getCartTotal(getCustomerCartItems(customer));
 
                 await sendInteractiveButtons(
                   customerPhone,
@@ -683,18 +715,22 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           const item = allItems.find(i => i._id?.toString() === itemName || i.name === itemName);
 
           if (item) {
-            customer.whatsappCart.push({
+            const updatedCart = [
+              ...getCustomerCartItems(customer),
+              {
               productId: item._id?.toString() || item.name,
               name: item.name,
               quantity: 1,
               price: item.price,
               portionLabel: '',
               notes: '',
-            });
+              },
+            ];
+            setCustomerCartItems(customer, updatedCart);
             await customer.save();
 
-            const cartSummary = formatCartSummary(customer.whatsappCart);
-            const total = getCartTotal(customer.whatsappCart);
+            const cartSummary = formatCartSummary(getCustomerCartItems(customer));
+            const total = getCartTotal(getCustomerCartItems(customer));
 
             await sendInteractiveButtons(
               customerPhone,
@@ -739,18 +775,18 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
           const order = await Order.findById(orderId);
 
           if (order) {
-            customer.whatsappCart = order.items.map(i => ({
+            setCustomerCartItems(customer, order.items.map(i => ({
               productId: i.productId,
               name: i.name,
               quantity: i.quantity,
               price: i.price,
               portionLabel: (i as any).portionLabel || '',
               notes: (i as any).notes || '',
-            }));
+            })));
             await customer.save();
 
-            const cartSummary = formatCartSummary(customer.whatsappCart);
-            const total = getCartTotal(customer.whatsappCart);
+            const cartSummary = formatCartSummary(getCustomerCartItems(customer));
+            const total = getCartTotal(getCustomerCartItems(customer));
 
             await sendInteractiveButtons(
               customerPhone,
@@ -780,8 +816,9 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       await customer.save();
 
       if (customer.whatsappFlowState === 'checkout_location') {
-        const itemsSummary = formatCartSummary(customer.whatsappCart);
-        const total = getCartTotal(customer.whatsappCart);
+        const cartItems = getCustomerCartItems(customer);
+        const itemsSummary = formatCartSummary(cartItems);
+        const total = getCartTotal(cartItems);
 
         await sendInteractiveButtons(
           customerPhone,

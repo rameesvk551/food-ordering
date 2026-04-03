@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { UtensilsCrossed } from 'lucide-react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CartDrawer from '../../components/customer/CartDrawer';
 import StoreCategoryTabs from '../../components/customer/store/StoreCategoryTabs';
 import StoreCheckoutForm from '../../components/customer/store/StoreCheckoutForm';
@@ -35,7 +35,8 @@ const getPortionOptions = (item: MenuItem): MenuPortionOption[] => {
 const StorePage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
-  const { addItem, totalItems, totalAmount, items: cartItems, clearCart } = useCart();
+  const [searchParams] = useSearchParams();
+  const { addItem, totalItems, totalAmount, items: cartItems, clearCart, replaceItems } = useCart();
   const { showToast } = useToast();
 
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
@@ -51,6 +52,10 @@ const StorePage = () => {
   const [customerInfo, setCustomerInfo] = useState<CustomerInfo>({
     name: '', phone: '', address: '', city: '', pincode: '',
   });
+  const [sessionPhone, setSessionPhone] = useState('');
+  const [cartUpdatedAt, setCartUpdatedAt] = useState('');
+  const [sessionReady, setSessionReady] = useState(false);
+  const suppressNextCartSyncRef = useRef(false);
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -67,6 +72,109 @@ const StorePage = () => {
 
     if (slug) fetchStore();
   }, [showToast, slug]);
+
+  useEffect(() => {
+    if (!slug || !restaurant) return;
+
+    const queryPhone = searchParams.get('wa_phone') || localStorage.getItem(`customer_phone_${slug}`) || '';
+    const queryName = searchParams.get('wa_name') || '';
+
+    if (!queryPhone) {
+      setSessionReady(true);
+      return;
+    }
+
+    const bootstrapSession = async () => {
+      try {
+        const response = await api.post(`/public/${slug}/session`, {
+          phone: queryPhone,
+          name: queryName || undefined,
+        });
+
+        const customer = response.data?.customer;
+        const serverCart = response.data?.cart || [];
+        const serverCartUpdatedAt = response.data?.cartUpdatedAt || '';
+
+        if (customer) {
+          setCustomerInfo((prev) => ({
+            ...prev,
+            name: customer.name || prev.name,
+            phone: customer.phone || prev.phone,
+            address: customer.address || prev.address,
+            city: customer.city || prev.city,
+            pincode: customer.pincode || prev.pincode,
+          }));
+          setSessionPhone(customer.phone || queryPhone);
+          localStorage.setItem(`customer_phone_${slug}`, customer.phone || queryPhone);
+        }
+
+        suppressNextCartSyncRef.current = true;
+        replaceItems(serverCart);
+        setCartUpdatedAt(serverCartUpdatedAt ? String(serverCartUpdatedAt) : '');
+      } catch {
+        showToast('Failed to start synced customer session', 'error');
+      } finally {
+        setSessionReady(true);
+      }
+    };
+
+    bootstrapSession();
+  }, [restaurant, replaceItems, searchParams, showToast, slug]);
+
+  useEffect(() => {
+    if (!slug || !sessionPhone || !sessionReady) return;
+    if (suppressNextCartSyncRef.current) {
+      suppressNextCartSyncRef.current = false;
+      return;
+    }
+
+    const timeout = window.setTimeout(async () => {
+      try {
+        const response = await api.put(`/public/${slug}/cart`, {
+          phone: sessionPhone,
+          customerName: customerInfo.name,
+          items: cartItems,
+        });
+        const nextUpdatedAt = response.data?.cartUpdatedAt;
+        if (nextUpdatedAt) {
+          setCartUpdatedAt(String(nextUpdatedAt));
+        }
+      } catch {
+        // Silent retry on next cart interaction
+      }
+    }, 500);
+
+    return () => window.clearTimeout(timeout);
+  }, [cartItems, customerInfo.name, sessionPhone, sessionReady, slug]);
+
+  useEffect(() => {
+    if (!slug || !sessionPhone || !sessionReady) return;
+
+    const interval = window.setInterval(async () => {
+      try {
+        const response = await api.get(`/public/${slug}/cart`, {
+          params: { phone: sessionPhone },
+        });
+
+        const incomingItems = response.data?.items || [];
+        const incomingUpdatedAt = String(response.data?.cartUpdatedAt || '');
+        if (!incomingUpdatedAt) return;
+
+        const localTs = cartUpdatedAt ? new Date(cartUpdatedAt).getTime() : 0;
+        const remoteTs = new Date(incomingUpdatedAt).getTime();
+
+        if (remoteTs > localTs) {
+          suppressNextCartSyncRef.current = true;
+          replaceItems(incomingItems);
+          setCartUpdatedAt(incomingUpdatedAt);
+        }
+      } catch {
+        // Poll loop continues
+      }
+    }, 7000);
+
+    return () => window.clearInterval(interval);
+  }, [cartUpdatedAt, replaceItems, sessionPhone, sessionReady, slug]);
 
   const filteredItems = useMemo<DisplayMenuItem[]>(() => {
     if (!restaurant) return [];
@@ -167,6 +275,12 @@ const StorePage = () => {
 
   const handleCustomerInfoChange = (field: keyof CustomerInfo, value: string) => {
     setCustomerInfo((prev) => ({ ...prev, [field]: value }));
+    if (field === 'phone' && value.trim()) {
+      setSessionPhone(value.trim());
+      if (slug) {
+        localStorage.setItem(`customer_phone_${slug}`, value.trim());
+      }
+    }
   };
 
   const handlePlaceOrder = async () => {

@@ -2,8 +2,114 @@ import { Request, Response } from 'express';
 import { Restaurant } from '../models/Restaurant';
 import { Customer } from '../models/Customer';
 import { Order } from '../models/Order';
+import { sendWhatsAppMessage } from '../services/whatsapp.service';
 
 const sanitizePhoneNumber = (phoneNumber: string): string => phoneNumber.replace(/\D/g, '');
+
+const buildPhoneFilter = (phoneNumber: string) => {
+  const normalized = sanitizePhoneNumber(phoneNumber || '');
+  if (!normalized) {
+    return { phoneNumber };
+  }
+
+  return {
+    $or: [
+      { phoneNumber },
+      { phoneNumber: normalized },
+      { phoneNumber: `+${normalized}` },
+    ],
+  };
+};
+
+const mapCustomerCartToWebCart = (items: any[] = []) =>
+  (items || []).map((item: any) => {
+    const productId = String(item?.productId || item?.product_id || '').trim();
+    const portionId = String(item?.portionId || item?.portion_id || '').trim();
+    const cartKey = `${productId}::${portionId || 'default'}`;
+
+    return {
+      cartKey,
+      productId,
+      name: String(item?.name || '').trim(),
+      price: Math.max(0, Number(item?.price) || 0),
+      quantity: Math.max(1, Number(item?.quantity) || 1),
+      portionId: portionId || undefined,
+      portionName: String(item?.portionName || item?.portionLabel || item?.portion_label || '').trim() || undefined,
+    };
+  }).filter((item: any) => item.productId && item.name);
+
+const mapWebCartToCustomerCart = (items: any[] = []) =>
+  (items || []).map((item: any) => ({
+    productId: String(item?.productId || '').trim(),
+    name: String(item?.name || '').trim(),
+    quantity: Math.max(1, Number(item?.quantity) || 1),
+    price: Math.max(0, Number(item?.price) || 0),
+    portionLabel: String(item?.portionName || '').trim(),
+    notes: String(item?.notes || '').trim(),
+    portionId: String(item?.portionId || '').trim(),
+  })).filter((item: any) => item.productId && item.name);
+
+const getCartTotal = (items: any[] = []): number =>
+  (items || []).reduce(
+    (sum: number, item: any) => sum + Math.max(0, Number(item?.price) || 0) * Math.max(1, Number(item?.quantity) || 1),
+    0
+  );
+
+const buildOrderSummary = (order: any): string => {
+  const items = (order.items || [])
+    .map((item: any) => `• ${item.name} x${item.quantity}`)
+    .join('\n');
+
+  return [
+    `✅ Order placed successfully!`,
+    `Order #${order._id.toString().slice(-6)}`,
+    '',
+    items,
+    '',
+    `Total: ₹${order.totalAmount}`,
+    `Status: ${order.status}`,
+  ].join('\n');
+};
+
+const findOrCreateCustomerForRestaurant = async (
+  restaurantId: any,
+  payload: { phone: string; name?: string; address?: string; pincode?: string; city?: string; district?: string }
+) => {
+  const phone = payload.phone || '';
+  const normalized = sanitizePhoneNumber(phone);
+  const customerPhone = normalized || phone;
+
+  let customer = await Customer.findOne({
+    ...buildPhoneFilter(phone),
+    restaurantId,
+  });
+
+  if (!customer) {
+    customer = new Customer({
+      name: payload.name || '',
+      phoneNumber: customerPhone,
+      restaurantId,
+      whatsappUserId: customerPhone,
+      address: payload.address || '',
+      pincode: payload.pincode || '',
+      city: payload.city || '',
+      district: payload.district || '',
+      cartUpdatedAt: new Date(),
+    });
+    await customer.save();
+    return customer;
+  }
+
+  if (payload.name) customer.name = payload.name;
+  if (payload.address) customer.address = payload.address;
+  if (payload.pincode) customer.pincode = payload.pincode;
+  if (payload.city) customer.city = payload.city;
+  if (payload.district) customer.district = payload.district;
+  if (!customer.whatsappUserId) customer.whatsappUserId = customerPhone;
+  await customer.save();
+
+  return customer;
+};
 
 const getDefaultPrice = (item: {
   price: number;
@@ -102,32 +208,14 @@ export const placeWebOrder = async (req: Request, res: Response): Promise<void> 
       return;
     }
 
-    // Find or create customer
-    let customer = await Customer.findOne({
-      phoneNumber: customerPhone,
-      restaurantId: restaurant._id,
+    const customer = await findOrCreateCustomerForRestaurant(restaurant._id, {
+      phone: customerPhone,
+      name: customerName,
+      address,
+      pincode,
+      city,
+      district,
     });
-
-    if (!customer) {
-      customer = new Customer({
-        name: customerName,
-        phoneNumber: customerPhone,
-        restaurantId: restaurant._id,
-        address: address || '',
-        pincode: pincode || '',
-        city: city || '',
-        district: district || '',
-      });
-      await customer.save();
-    } else {
-      // Update customer info if provided
-      if (customerName) customer.name = customerName;
-      if (address) customer.address = address;
-      if (pincode) customer.pincode = pincode;
-      if (city) customer.city = city;
-      if (district) customer.district = district;
-      await customer.save();
-    }
 
     // Validate items against menu
     const allMenuItems = restaurant.menu.flatMap((cat) => cat.items);
@@ -172,6 +260,19 @@ export const placeWebOrder = async (req: Request, res: Response): Promise<void> 
     });
     await order.save();
 
+    try {
+      if (customer.whatsappUserId || customer.phoneNumber) {
+        await sendWhatsAppMessage(
+          customer.whatsappUserId || customer.phoneNumber,
+          buildOrderSummary(order),
+          restaurant.whatsappPhoneNumberId,
+          restaurant.accessToken
+        );
+      }
+    } catch (whatsAppError) {
+      console.error('Failed to send web order update in WhatsApp:', whatsAppError);
+    }
+
     res.status(201).json({
       order: {
         id: order._id,
@@ -184,5 +285,158 @@ export const placeWebOrder = async (req: Request, res: Response): Promise<void> 
   } catch (error: any) {
     console.error('Place order error:', error);
     res.status(500).json({ error: error.message || 'Failed to place order.' });
+  }
+};
+
+export const resolveCustomerSession = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const { phone, name, address, pincode, city, district } = req.body || {};
+
+    if (!phone) {
+      res.status(400).json({ error: 'Phone is required.' });
+      return;
+    }
+
+    const restaurant = await Restaurant.findOne({ slug, isActive: true }).select('name slug');
+    if (!restaurant) {
+      res.status(404).json({ error: 'Restaurant not found.' });
+      return;
+    }
+
+    const customer = await findOrCreateCustomerForRestaurant(restaurant._id, {
+      phone,
+      name,
+      address,
+      pincode,
+      city,
+      district,
+    });
+
+    res.json({
+      customer: {
+        id: customer._id,
+        name: customer.name,
+        phone: customer.phoneNumber,
+        address: customer.address,
+        pincode: customer.pincode,
+        city: customer.city,
+        district: customer.district,
+      },
+      cart: mapCustomerCartToWebCart(customer.whatsappCart || []),
+      cartUpdatedAt: customer.cartUpdatedAt,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to resolve customer session.' });
+  }
+};
+
+export const getCustomerCart = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const phone = String(req.query.phone || '');
+
+    if (!phone) {
+      res.status(400).json({ error: 'Phone is required.' });
+      return;
+    }
+
+    const restaurant = await Restaurant.findOne({ slug, isActive: true }).select('_id');
+    if (!restaurant) {
+      res.status(404).json({ error: 'Restaurant not found.' });
+      return;
+    }
+
+    const customer = await Customer.findOne({
+      ...buildPhoneFilter(phone),
+      restaurantId: restaurant._id,
+    });
+
+    if (!customer) {
+      res.json({ items: [], cartUpdatedAt: null });
+      return;
+    }
+
+    res.json({
+      items: mapCustomerCartToWebCart(customer.whatsappCart || []),
+      cartUpdatedAt: customer.cartUpdatedAt,
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch cart.' });
+  }
+};
+
+export const upsertCustomerCart = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const { phone, items, customerName } = req.body || {};
+
+    if (!phone) {
+      res.status(400).json({ error: 'Phone is required.' });
+      return;
+    }
+
+    const restaurant = await Restaurant.findOne({ slug, isActive: true });
+    if (!restaurant) {
+      res.status(404).json({ error: 'Restaurant not found.' });
+      return;
+    }
+
+    const customer = await findOrCreateCustomerForRestaurant(restaurant._id, {
+      phone,
+      name: customerName,
+    });
+
+    customer.whatsappCart = mapWebCartToCustomerCart(items || []);
+    customer.cartUpdatedAt = new Date();
+    await customer.save();
+
+    res.json({
+      items: mapCustomerCartToWebCart(customer.whatsappCart || []),
+      cartUpdatedAt: customer.cartUpdatedAt,
+      totalAmount: getCartTotal(customer.whatsappCart || []),
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to sync cart.' });
+  }
+};
+
+export const getCustomerOrders = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { slug } = req.params;
+    const phone = String(req.query.phone || '');
+
+    if (!phone) {
+      res.status(400).json({ error: 'Phone is required.' });
+      return;
+    }
+
+    const restaurant = await Restaurant.findOne({ slug, isActive: true }).select('_id');
+    if (!restaurant) {
+      res.status(404).json({ error: 'Restaurant not found.' });
+      return;
+    }
+
+    const customer = await Customer.findOne({
+      ...buildPhoneFilter(phone),
+      restaurantId: restaurant._id,
+    }).select('_id');
+
+    if (!customer) {
+      res.json({ orders: [] });
+      return;
+    }
+
+    const orders = await Order.find({
+      restaurantId: restaurant._id,
+      customerId: customer._id,
+    })
+      .sort({ createdAt: -1 })
+      .limit(20)
+      .lean();
+
+    res.json({ orders });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to fetch customer orders.' });
   }
 };

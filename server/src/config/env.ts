@@ -18,6 +18,7 @@ export const env = {
     ? Buffer.from(process.env.WHATSAPP_FLOW_PRIVATE_KEY, 'base64').toString('utf-8')
     : process.env.WHATSAPP_FLOW_PRIVATE_KEY || '',
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
+  clientBaseUrl: process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'http://localhost:5173',
 };
 
 // Diagnostic Logging for Marketing OS

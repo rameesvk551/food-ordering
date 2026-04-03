@@ -1,6 +1,9 @@
 import { Request, Response } from 'express';
 import { Order } from '../models/Order';
 import { AuthRequest } from '../middleware/auth';
+import { Restaurant } from '../models/Restaurant';
+import { Customer } from '../models/Customer';
+import { sendWhatsAppMessage } from '../services/whatsapp.service';
 
 export const getOrders = async (req: AuthRequest, res: Response): Promise<void> => {
   try {
@@ -73,6 +76,24 @@ export const updateOrderStatus = async (req: AuthRequest, res: Response): Promis
     if (!order) {
       res.status(404).json({ error: 'Order not found.' });
       return;
+    }
+
+    try {
+      const [restaurant, customer] = await Promise.all([
+        Restaurant.findById(order.restaurantId).select('whatsappPhoneNumberId accessToken'),
+        Customer.findById(order.customerId).select('whatsappUserId phoneNumber'),
+      ]);
+
+      if (restaurant?.whatsappPhoneNumberId && (customer?.whatsappUserId || customer?.phoneNumber)) {
+        await sendWhatsAppMessage(
+          customer.whatsappUserId || customer.phoneNumber,
+          `📦 Order #${order._id.toString().slice(-6)} update:\nStatus: *${order.status}*`,
+          restaurant.whatsappPhoneNumberId,
+          restaurant.accessToken
+        );
+      }
+    } catch (notifyError) {
+      console.error('Failed to send order status update on WhatsApp:', notifyError);
     }
 
     res.json({ order });
