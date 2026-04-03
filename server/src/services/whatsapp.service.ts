@@ -258,6 +258,67 @@ export const sendProductListMessage = async (
   }
 };
 
+export const sendUtilityMenuTemplate = async (
+  phoneNumber: string,
+  phoneNumberId: string,
+  accessToken: string,
+  payload: {
+    templateName: string;
+    languageCode: string;
+    customerName: string;
+    menuUrlPathParam: string;
+  }
+): Promise<void> => {
+  try {
+    const decryptedToken = env.whatsappAccessToken || (accessToken ? decrypt(accessToken) : '');
+    await axios.post(
+      `${WHATSAPP_API_URL}/${phoneNumberId}/messages`,
+      {
+        messaging_product: 'whatsapp',
+        to: phoneNumber,
+        type: 'template',
+        template: {
+          name: payload.templateName,
+          language: {
+            code: payload.languageCode,
+          },
+          components: [
+            {
+              type: 'body',
+              parameters: [
+                {
+                  type: 'text',
+                  text: payload.customerName || 'Customer',
+                },
+              ],
+            },
+            {
+              type: 'button',
+              sub_type: 'url',
+              index: '0',
+              parameters: [
+                {
+                  type: 'text',
+                  text: payload.menuUrlPathParam,
+                },
+              ],
+            },
+          ],
+        },
+      },
+      {
+        headers: {
+          Authorization: `Bearer ${decryptedToken}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+  } catch (error: any) {
+    console.error('WhatsApp send utility template error:', error.response?.data || error.message);
+    throw new Error('Failed to send WhatsApp utility template');
+  }
+};
+
 export const sendOrderDetailsMessage = async (
   phoneNumber: string,
   order: any,

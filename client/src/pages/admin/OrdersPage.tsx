@@ -46,7 +46,7 @@ const OrdersPage = () => {
     try {
       const params: any = {};
       if (filter !== 'all') params.status = filter;
-      const res = await api.get('/orders', { params });
+      const res = await api.get('/order', { params });
       setOrders(res.data.orders);
     } catch {
       showToast('Failed to fetch orders', 'error');
@@ -63,7 +63,7 @@ const OrdersPage = () => {
 
   const updateStatus = async (orderId: string, status: string) => {
     try {
-      await api.patch(`/orders/${orderId}/status`, { status });
+      await api.patch(`/order/${orderId}/status`, { status });
       setOrders((prev) =>
         prev.map((o) => (o._id === orderId ? { ...o, status: status as any } : o))
       );

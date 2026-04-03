@@ -27,6 +27,7 @@ import {
   parseOrderFromMessage,
   getHelpMessage,
   sendFlowMessage,
+  sendUtilityMenuTemplate,
 } from '../services/whatsapp.service';
 import { createAndPublishFlow } from '../services/flow.service';
 
@@ -225,6 +226,16 @@ const buildBrowserMenuUrl = (slug: string, phone: string, name: string): string 
   });
 
   return `${safeBase}/${slug}?${query.toString()}`;
+};
+
+const buildBrowserMenuPathParam = (slug: string, phone: string, name: string): string => {
+  const query = new URLSearchParams({
+    wa_phone: phone,
+    wa_name: name || 'Customer',
+    src: 'whatsapp',
+  });
+
+  return `${slug}?${query.toString()}`;
 };
 
 
@@ -635,6 +646,26 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
         if (buttonId === 'browser_menu') {
           const browserMenuUrl = buildBrowserMenuUrl(restaurant.slug, customer.phoneNumber, customer.name);
+
+          if (env.whatsappMenuTemplateName) {
+            try {
+              await sendUtilityMenuTemplate(
+                customerPhone,
+                restaurant.whatsappPhoneNumberId,
+                restaurant.accessToken,
+                {
+                  templateName: env.whatsappMenuTemplateName,
+                  languageCode: env.whatsappMenuTemplateLanguage,
+                  customerName: customer.name || 'Customer',
+                  menuUrlPathParam: buildBrowserMenuPathParam(restaurant.slug, customer.phoneNumber, customer.name),
+                }
+              );
+              return;
+            } catch (templateError) {
+              console.error('[Webhook] Browser menu template failed, falling back to text link:', templateError);
+            }
+          }
+
           await sendWhatsAppMessage(
             customerPhone,
             `🌐 Open Browser Menu (auto-login):\n${browserMenuUrl}`,

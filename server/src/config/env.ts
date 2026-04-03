@@ -19,6 +19,8 @@ export const env = {
     : process.env.WHATSAPP_FLOW_PRIVATE_KEY || '',
   cloudinaryCloudName: process.env.CLOUDINARY_CLOUD_NAME || '',
   clientBaseUrl: process.env.CLIENT_BASE_URL || process.env.FRONTEND_URL || 'https://food.wayon.in',
+  whatsappMenuTemplateName: process.env.WHATSAPP_MENU_TEMPLATE_NAME || '',
+  whatsappMenuTemplateLanguage: process.env.WHATSAPP_MENU_TEMPLATE_LANGUAGE || 'en',
 };
 
 // Diagnostic Logging for Marketing OS
