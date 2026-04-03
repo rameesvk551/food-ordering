@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { UtensilsCrossed } from 'lucide-react';
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import CartDrawer from '../../components/customer/CartDrawer';
 import StoreCategoryTabs from '../../components/customer/store/StoreCategoryTabs';
 import StoreCheckoutForm from '../../components/customer/store/StoreCheckoutForm';
@@ -35,6 +35,7 @@ const getPortionOptions = (item: MenuItem): MenuPortionOption[] => {
 const StorePage = () => {
   const { slug } = useParams<{ slug: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const { addItem, totalItems, totalAmount, items: cartItems, clearCart, replaceItems } = useCart();
   const { showToast } = useToast();
@@ -56,6 +57,7 @@ const StorePage = () => {
   const [cartUpdatedAt, setCartUpdatedAt] = useState('');
   const [sessionReady, setSessionReady] = useState(false);
   const suppressNextCartSyncRef = useRef(false);
+  const storeBasePath = location.pathname.startsWith('/restaurant/') ? `/restaurant/${slug}` : `/${slug}`;
 
   useEffect(() => {
     const fetchStore = async () => {
@@ -373,6 +375,7 @@ const StorePage = () => {
             restaurantName={restaurant.name}
             addedItems={addedItems}
             onAddToCart={(item) => handleAddToCart(item)}
+            onViewDetails={(item) => navigate(`${storeBasePath}/item/${item._id}`)}
           />
         </div>
       </div>

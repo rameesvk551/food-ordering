@@ -8,6 +8,7 @@ interface StoreMenuSectionProps {
   restaurantName: string;
   addedItems: Set<string>;
   onAddToCart: (item: DisplayMenuItem) => void;
+  onViewDetails: (item: DisplayMenuItem) => void;
 }
 
 const StoreMenuSection = ({
@@ -16,6 +17,7 @@ const StoreMenuSection = ({
   restaurantName,
   addedItems,
   onAddToCart,
+  onViewDetails,
 }: StoreMenuSectionProps) => {
   if (items.length === 0) {
     return (
@@ -42,6 +44,7 @@ const StoreMenuSection = ({
             restaurantName={restaurantName}
             isAdded={addedItems.has(item._id)}
             onAdd={onAddToCart}
+            onViewDetails={onViewDetails}
           />
         ))}
       </div>

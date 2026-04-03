@@ -7,6 +7,7 @@ import {
   IMenuItem,
   IMenuPortionOption,
 } from '../models/Restaurant';
+import { Customer } from '../models/Customer';
 import { env } from '../config/env';
 
 const WAYO_TENANT_IDS = [
@@ -578,6 +579,124 @@ const buildCartResponse = async (
   };
 };
 
+const getCustomerPhone = (data: any): string =>
+  coerceString(data?.customer_phone ?? data?.customerPhone ?? data?.phone ?? data?.phone_number);
+
+const getFlowCustomer = async (restaurantId: any, data: any) => {
+  const phoneNumber = getCustomerPhone(data);
+  if (!phoneNumber) return null;
+
+  return Customer.findOne({
+    restaurantId,
+    $or: [
+      { phoneNumber },
+      { phoneNumber: phoneNumber.replace(/\D/g, '') },
+      { whatsappUserId: phoneNumber },
+    ],
+  });
+};
+
+const normalizeSavedAddress = (address: any, index: number) => ({
+  id: String(index),
+  title: address?.label || address?.name || `Address ${index + 1}`,
+  description: [address?.flat, address?.address, address?.city, address?.pincode]
+    .map((value) => coerceString(value))
+    .filter(Boolean)
+    .slice(0, 3)
+    .join(' • '),
+  label: coerceString(address?.label || address?.name),
+  name: coerceString(address?.name),
+  phoneNumber: coerceString(address?.phoneNumber),
+  flat: coerceString(address?.flat),
+  address: coerceString(address?.address),
+  city: coerceString(address?.city),
+  pincode: coerceString(address?.pincode),
+  district: coerceString(address?.district),
+  latitude: String(Number(address?.location?.latitude || 0)),
+  longitude: String(Number(address?.location?.longitude || 0)),
+});
+
+const buildDeliveryAddressSummary = (address: any): string => {
+  const lines = [
+    address?.name ? `Name: ${address.name}` : '',
+    address?.phoneNumber ? `Phone: ${address.phoneNumber}` : '',
+    address?.flat ? `Flat: ${address.flat}` : '',
+    address?.address ? `Address: ${address.address}` : '',
+    [address?.city, address?.pincode].filter(Boolean).join(' - '),
+  ].filter(Boolean);
+
+  return lines.join('\n');
+};
+
+const buildCheckoutAddressSelectResponse = async (
+  restaurant: any,
+  cartItems: FlowCartItem[],
+  customer: any
+) => {
+  const cartPreview = buildCartPreview(cartItems);
+  const savedAddresses = Array.isArray(customer?.savedAddresses) ? customer.savedAddresses : [];
+  const addressItems = savedAddresses.map((address: any, index: number) => normalizeSavedAddress(address, index));
+
+  return {
+    screen: 'CHECKOUT_ADDRESS_SELECT',
+    data: {
+      cart_items: cartItems,
+      cart_status: cartPreview.status,
+      cart_total_label: `Total • ${formatCurrency(cartPreview.total)}`,
+      saved_address_items: addressItems,
+      has_saved_addresses: addressItems.length > 0,
+      selected_saved_address_index: '0',
+      address_hint: addressItems.length > 0
+        ? 'Choose a saved delivery address or add a new one.'
+        : 'No saved addresses found. Add a new delivery address.',
+    },
+  };
+};
+
+const buildCheckoutAddressFormResponse = async (
+  cartItems: FlowCartItem[],
+  customer: any,
+  prefillAddress: any = {}
+) => {
+  const cartPreview = buildCartPreview(cartItems);
+  const fallbackName = coerceString(prefillAddress?.name || customer?.name);
+  const fallbackPhone = coerceString(prefillAddress?.phoneNumber || customer?.deliveryPhoneNumber || customer?.phoneNumber);
+
+  return {
+    screen: 'CHECKOUT_ADDRESS_FORM',
+    data: {
+      cart_items: cartItems,
+      cart_status: cartPreview.status,
+      cart_total_label: `Total • ${formatCurrency(cartPreview.total)}`,
+      name: fallbackName,
+      phone_number: fallbackPhone,
+      flat: coerceString(prefillAddress?.flat),
+      address: coerceString(prefillAddress?.address || customer?.address),
+      city: coerceString(prefillAddress?.city || customer?.city),
+      pincode: coerceString(prefillAddress?.pincode || customer?.pincode),
+      district: coerceString(prefillAddress?.district || customer?.district),
+      location_note: coerceString(prefillAddress?.location_note),
+    },
+  };
+};
+
+const buildCheckoutConfirmResponse = async (
+  cartItems: FlowCartItem[],
+  deliveryAddress: any
+) => {
+  const cartPreview = buildCartPreview(cartItems);
+  return {
+    screen: 'CHECKOUT_CONFIRM',
+    data: {
+      cart_items: cartItems,
+      cart_summary: cartPreview.summary || 'Your cart is ready for checkout.',
+      cart_total_label: `Total • ${formatCurrency(cartPreview.total)}`,
+      delivery_address: deliveryAddress,
+      delivery_address_summary: buildDeliveryAddressSummary(deliveryAddress),
+    },
+  };
+};
+
 const findRestaurantForFlow = async (req: Request, flowToken: string) => {
   let restaurant: any = null;
   const partnerTenantIdHeader = req.headers['x-partner-tenant-id'] as string;
@@ -670,10 +789,12 @@ export const handleFlowRequest = async (req: Request, res: Response) => {
     const selectedQuantity = coerceString(data?.quantity ?? data?.selected_quantity);
     const selectedNotes = coerceString(data?.notes ?? data?.selected_notes);
     const cartItems = normalizeCartItems(data?.cart_items);
+    const customer = await getFlowCustomer(restaurant._id, data);
     const hasComponentValidationError = data?.error === 'components-validation-error';
     const validationErrorMessage = String(data?.error_message || '');
     const missingCategoriesList =
       hasComponentValidationError && validationErrorMessage.includes('"categories_list"');
+    const selectedSavedAddressIndex = Number.parseInt(coerceString(data?.selected_saved_address_index ?? data?.saved_address_index), 10);
 
     let responseData: any;
 
@@ -734,6 +855,65 @@ export const handleFlowRequest = async (req: Request, res: Response) => {
       return res.send(encryptedResponse);
     }
 
+    if (effectiveAction === 'CHECKOUT') {
+      responseData = customer && Array.isArray(customer.savedAddresses) && customer.savedAddresses.length > 0
+        ? await buildCheckoutAddressSelectResponse(restaurant, cartItems, customer)
+        : await buildCheckoutAddressFormResponse(cartItems, customer, {});
+
+      const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
+      return res.send(encryptedResponse);
+    }
+
+    if (effectiveAction === 'SELECT_SAVED_ADDRESS') {
+      const savedAddresses = Array.isArray(customer?.savedAddresses) ? customer.savedAddresses : [];
+      const selectedAddress = savedAddresses[selectedSavedAddressIndex] || savedAddresses[0];
+
+      if (!selectedAddress) {
+        responseData = await buildCheckoutAddressFormResponse(cartItems, customer, {});
+      } else {
+        const deliveryAddress = {
+          label: coerceString(selectedAddress.label || selectedAddress.name),
+          name: coerceString(selectedAddress.name || customer?.name),
+          phoneNumber: coerceString(selectedAddress.phoneNumber || customer?.deliveryPhoneNumber || customer?.phoneNumber),
+          flat: coerceString(selectedAddress.flat),
+          address: coerceString(selectedAddress.address),
+          city: coerceString(selectedAddress.city),
+          pincode: coerceString(selectedAddress.pincode),
+          district: coerceString(selectedAddress.district),
+          latitude: Number(selectedAddress.location?.latitude || 0),
+          longitude: Number(selectedAddress.location?.longitude || 0),
+        };
+        responseData = await buildCheckoutConfirmResponse(cartItems, deliveryAddress);
+      }
+
+      const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
+      return res.send(encryptedResponse);
+    }
+
+    if (effectiveAction === 'START_NEW_ADDRESS') {
+      responseData = await buildCheckoutAddressFormResponse(cartItems, customer, {});
+      const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
+      return res.send(encryptedResponse);
+    }
+
+    if (effectiveAction === 'SUBMIT_NEW_ADDRESS') {
+      const deliveryAddress = {
+        label: coerceString(data?.label || data?.name),
+        name: coerceString(data?.name || customer?.name),
+        phoneNumber: coerceString(data?.phone_number || data?.phoneNumber || customer?.deliveryPhoneNumber || customer?.phoneNumber),
+        flat: coerceString(data?.flat),
+        address: coerceString(data?.address),
+        city: coerceString(data?.city),
+        pincode: coerceString(data?.pincode),
+        district: coerceString(data?.district),
+        location_note: coerceString(data?.location_note),
+      };
+
+      responseData = await buildCheckoutConfirmResponse(cartItems, deliveryAddress);
+      const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
+      return res.send(encryptedResponse);
+    }
+
     const shouldLoadItems =
       effectiveAction === 'LOAD_ITEMS' ||
       (effectiveAction === 'DATA_EXCHANGE' && Boolean(selectedCategoryId) && !selectedItemId && !missingCategoriesList);
@@ -766,16 +946,6 @@ export const handleFlowRequest = async (req: Request, res: Response) => {
 
       const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
       console.log(`[Flow] [${effectiveAction}] Sending encrypted response.`);
-      return res.send(encryptedResponse);
-    }
-
-    if (effectiveAction === 'CHECKOUT') {
-      responseData = {
-        data: {
-          acknowledged: true,
-        },
-      };
-      const encryptedResponse = encryptFlowResponse(responseData, aesKeyBuffer, initialVectorBuffer);
       return res.send(encryptedResponse);
     }
 

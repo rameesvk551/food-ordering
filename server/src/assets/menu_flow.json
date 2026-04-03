@@ -12,7 +12,17 @@
     "ITEM_DETAILS": [
       "CART"
     ],
-    "CART": []
+    "CART": [
+      "CHECKOUT_ADDRESS_SELECT"
+    ],
+    "CHECKOUT_ADDRESS_SELECT": [
+      "CHECKOUT_ADDRESS_FORM",
+      "CHECKOUT_CONFIRM"
+    ],
+    "CHECKOUT_ADDRESS_FORM": [
+      "CHECKOUT_CONFIRM"
+    ],
+    "CHECKOUT_CONFIRM": []
   },
   "screens": [
     {
@@ -489,8 +499,7 @@
     {
       "id": "CART",
       "title": "Review Cart",
-      "terminal": true,
-      "success": true,
+      "terminal": false,
       "data": {
         "selected_category_id": {
           "type": "string",
@@ -614,12 +623,386 @@
           },
           {
             "type": "Footer",
+            "label": "Proceed to Checkout",
+            "on-click-action": {
+              "name": "data_exchange",
+              "payload": {
+                "intent": "checkout",
+                "cart_items": "${data.cart_items}"
+              }
+            }
+          }
+        ]
+      }
+    }
+    ,{
+      "id": "CHECKOUT_ADDRESS_SELECT",
+      "title": "Delivery Address",
+      "terminal": false,
+      "data": {
+        "cart_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "line_id": { "type": "string" },
+              "product_id": { "type": "string" },
+              "name": { "type": "string" },
+              "portion_id": { "type": "string" },
+              "portion_label": { "type": "string" },
+              "quantity": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "__example__": [
+            {
+              "line_id": "line_1",
+              "product_id": "item_margherita",
+              "name": "Margherita",
+              "portion_id": "regular",
+              "portion_label": "Regular",
+              "quantity": "2",
+              "unit_price": "299",
+              "notes": "Less spicy"
+            }
+          ]
+        },
+        "cart_status": {
+          "type": "string",
+          "__example__": "2 items in cart • INR 598"
+        },
+        "cart_total_label": {
+          "type": "string",
+          "__example__": "Total • INR 598"
+        },
+        "saved_address_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "main-content": {
+                "type": "object",
+                "properties": {
+                  "title": { "type": "string" },
+                  "description": { "type": "string" }
+                }
+              },
+              "on-click-action": {
+                "type": "object",
+                "properties": {
+                  "name": { "type": "string" },
+                  "payload": {
+                    "type": "object",
+                    "properties": {
+                      "intent": { "type": "string" },
+                      "selected_saved_address_index": { "type": "string" },
+                      "cart_items": { "type": "array" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "__example__": [
+            {
+              "id": "0",
+              "main-content": {
+                "title": "Home",
+                "description": "A-102 • MG Road • 560001"
+              },
+              "on-click-action": {
+                "name": "data_exchange",
+                "payload": {
+                  "intent": "select_saved_address",
+                  "selected_saved_address_index": "0",
+                  "cart_items": []
+                }
+              }
+            }
+          ]
+        },
+        "has_saved_addresses": {
+          "type": "boolean",
+          "__example__": true
+        },
+        "address_hint": {
+          "type": "string",
+          "__example__": "Choose a saved delivery address or add a new one."
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "NavigationList",
+            "name": "checkout_address_list",
+            "list-items": "${data.saved_address_items}"
+          }
+        ]
+      }
+    },
+    {
+      "id": "CHECKOUT_ADDRESS_FORM",
+      "title": "New Address",
+      "terminal": false,
+      "data": {
+        "cart_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "line_id": { "type": "string" },
+              "product_id": { "type": "string" },
+              "name": { "type": "string" },
+              "portion_id": { "type": "string" },
+              "portion_label": { "type": "string" },
+              "quantity": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "__example__": []
+        },
+        "cart_status": {
+          "type": "string",
+          "__example__": "2 items in cart • INR 598"
+        },
+        "cart_total_label": {
+          "type": "string",
+          "__example__": "Total • INR 598"
+        },
+        "name": {
+          "type": "string",
+          "__example__": "Ravi Kumar"
+        },
+        "phone_number": {
+          "type": "string",
+          "__example__": "9876543210"
+        },
+        "flat": {
+          "type": "string",
+          "__example__": "12B"
+        },
+        "address": {
+          "type": "string",
+          "__example__": "Brigade Road"
+        },
+        "city": {
+          "type": "string",
+          "__example__": "Bengaluru"
+        },
+        "pincode": {
+          "type": "string",
+          "__example__": "560001"
+        },
+        "district": {
+          "type": "string",
+          "__example__": "Bengaluru Urban"
+        },
+        "location_note": {
+          "type": "string",
+          "__example__": "Near metro station"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "New Delivery Address"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.cart_status}"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.cart_total_label}"
+          },
+          {
+            "type": "Form",
+            "name": "checkout_address_form",
+            "init-values": {
+              "name": "${data.name}",
+              "phone_number": "${data.phone_number}",
+              "flat": "${data.flat}",
+              "address": "${data.address}",
+              "city": "${data.city}",
+              "pincode": "${data.pincode}",
+              "district": "${data.district}",
+              "location_note": "${data.location_note}"
+            },
+            "children": [
+              {
+                "type": "TextInput",
+                "name": "name",
+                "label": "Name",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "phone_number",
+                "label": "Phone Number",
+                "required": true,
+                "input-type": "phone"
+              },
+              {
+                "type": "TextInput",
+                "name": "flat",
+                "label": "Flat / House / Building",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "address",
+                "label": "Area / Street / Address",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "city",
+                "label": "City",
+                "required": true
+              },
+              {
+                "type": "TextInput",
+                "name": "district",
+                "label": "District",
+                "required": false
+              },
+              {
+                "type": "TextInput",
+                "name": "pincode",
+                "label": "Pincode",
+                "required": true,
+                "input-type": "number"
+              },
+              {
+                "type": "TextArea",
+                "name": "location_note",
+                "label": "Location / landmark / map link (optional)"
+              },
+              {
+                "type": "Footer",
+                "label": "Review Order",
+                "on-click-action": {
+                  "name": "data_exchange",
+                  "payload": {
+                    "intent": "submit_new_address",
+                    "cart_items": "${data.cart_items}",
+                    "name": "${form.name}",
+                    "phone_number": "${form.phone_number}",
+                    "flat": "${form.flat}",
+                    "address": "${form.address}",
+                    "city": "${form.city}",
+                    "pincode": "${form.pincode}",
+                    "district": "${form.district}",
+                    "location_note": "${form.location_note}"
+                  }
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "CHECKOUT_CONFIRM",
+      "title": "Confirm Order",
+      "terminal": true,
+      "success": true,
+      "data": {
+        "cart_items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "line_id": { "type": "string" },
+              "product_id": { "type": "string" },
+              "name": { "type": "string" },
+              "portion_id": { "type": "string" },
+              "portion_label": { "type": "string" },
+              "quantity": { "type": "string" },
+              "unit_price": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          },
+          "__example__": []
+        },
+        "cart_summary": {
+          "type": "string",
+          "__example__": "1. Margherita\nSize: Regular | Qty: 2 | Total: INR 598"
+        },
+        "cart_total_label": {
+          "type": "string",
+          "__example__": "Total • INR 598"
+        },
+        "delivery_address": {
+          "type": "object",
+          "properties": {
+            "label": { "type": "string" },
+            "name": { "type": "string" },
+            "phoneNumber": { "type": "string" },
+            "flat": { "type": "string" },
+            "address": { "type": "string" },
+            "city": { "type": "string" },
+            "pincode": { "type": "string" },
+            "district": { "type": "string" },
+            "latitude": { "type": "string" },
+            "longitude": { "type": "string" },
+            "location_note": { "type": "string" }
+          },
+          "__example__": {
+            "label": "Home",
+            "name": "Ravi Kumar",
+            "phoneNumber": "9876543210",
+            "flat": "12B",
+            "address": "Brigade Road",
+            "city": "Bengaluru",
+            "pincode": "560001",
+            "district": "Bengaluru Urban",
+            "latitude": "12.9716",
+            "longitude": "77.5946",
+            "location_note": "Near metro station"
+          }
+        },
+        "delivery_address_summary": {
+          "type": "string",
+          "__example__": "Name: Ravi Kumar\nPhone: 9876543210\nFlat: 12B\nAddress: Brigade Road\nBengaluru - 560001"
+        }
+      },
+      "layout": {
+        "type": "SingleColumnLayout",
+        "children": [
+          {
+            "type": "TextHeading",
+            "text": "Confirm Order"
+          },
+          {
+            "type": "TextCaption",
+            "text": "${data.cart_total_label}"
+          },
+          {
+            "type": "TextBody",
+            "markdown": true,
+            "text": "**Delivery address**\n${data.delivery_address_summary}"
+          },
+          {
+            "type": "TextBody",
+            "markdown": true,
+            "text": "**Items**\n${data.cart_summary}"
+          },
+          {
+            "type": "Footer",
             "label": "Place Order",
             "on-click-action": {
               "name": "complete",
               "payload": {
                 "intent": "checkout",
-                "cart_items": "${data.cart_items}"
+                "cart_items": "${data.cart_items}",
+                "delivery_address": "${data.delivery_address}"
               }
             }
           }

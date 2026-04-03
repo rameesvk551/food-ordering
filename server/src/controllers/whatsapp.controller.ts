@@ -167,6 +167,188 @@ const formatCartSummary = (items: any[]): string => items.map((item) => formatCa
 const getCartTotal = (items: any[]): number =>
   items.reduce((sum: number, item: any) => sum + (Math.max(0, Number(item?.price) || 0) * Math.max(1, Number(item?.quantity) || 1)), 0);
 
+type DeliveryAddressDraft = {
+  label?: string;
+  name?: string;
+  phoneNumber?: string;
+  flat?: string;
+  address?: string;
+  city?: string;
+  pincode?: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+  source?: 'new' | 'saved';
+  savedAddressIndex?: number;
+};
+
+const normalizeWhatsappText = (value: any): string => String(value || '').trim();
+
+const getSavedDeliveryAddresses = (customer: any): any[] => {
+  const savedAddresses = Array.isArray(customer?.savedAddresses) ? customer.savedAddresses : [];
+
+  if (savedAddresses.length > 0) {
+    return savedAddresses;
+  }
+
+  const hasFallbackAddress = Boolean(customer?.address || customer?.city || customer?.pincode || customer?.district);
+  if (!hasFallbackAddress) {
+    return [];
+  }
+
+  return [{
+    label: customer?.name ? `${customer.name}'s address` : 'Saved address',
+    name: customer?.name || '',
+    phoneNumber: customer?.deliveryPhoneNumber || customer?.phoneNumber || '',
+    flat: '',
+    address: customer?.address || '',
+    city: customer?.city || '',
+    pincode: customer?.pincode || '',
+    district: customer?.district || '',
+    location: {
+      latitude: Number(customer?.location?.latitude || 0),
+      longitude: Number(customer?.location?.longitude || 0),
+    },
+    isDefault: true,
+    lastUsedAt: customer?.updatedAt || new Date(),
+  }];
+};
+
+const formatAddressSummary = (address: Partial<DeliveryAddressDraft>): string => {
+  const lines = [
+    address.name ? `Name: ${address.name}` : '',
+    address.phoneNumber ? `Phone: ${address.phoneNumber}` : '',
+    address.flat ? `Flat: ${address.flat}` : '',
+    address.address ? `Address: ${address.address}` : '',
+    [address.city, address.pincode].filter(Boolean).join(' - '),
+  ].filter(Boolean);
+
+  return lines.join('\n');
+};
+
+const formatSavedAddressDescription = (address: any): string => {
+  const pieces = [address.flat, address.address, address.city, address.pincode]
+    .map((entry) => normalizeWhatsappText(entry))
+    .filter(Boolean);
+
+  return pieces.slice(0, 3).join(' • ');
+};
+
+const getDraftAddress = (customer: any): DeliveryAddressDraft => ({
+  ...(customer?.whatsappAddressDraft || {}),
+});
+
+const saveDraftAddress = async (customer: any, draftPatch: DeliveryAddressDraft): Promise<void> => {
+  customer.whatsappAddressDraft = {
+    ...getDraftAddress(customer),
+    ...draftPatch,
+  };
+  await customer.save();
+};
+
+const clearDraftAddress = async (customer: any): Promise<void> => {
+  customer.whatsappAddressDraft = {};
+  await customer.save();
+};
+
+const persistSelectedAddress = async (customer: any, selectedAddress: DeliveryAddressDraft): Promise<void> => {
+  const existingAddresses = Array.isArray(customer.savedAddresses) ? customer.savedAddresses : [];
+  const nextAddress = {
+    label: selectedAddress.label || selectedAddress.name || 'Saved address',
+    name: selectedAddress.name || customer.name || '',
+    phoneNumber: selectedAddress.phoneNumber || customer.deliveryPhoneNumber || customer.phoneNumber || '',
+    flat: selectedAddress.flat || '',
+    address: selectedAddress.address || '',
+    city: selectedAddress.city || '',
+    pincode: selectedAddress.pincode || '',
+    district: selectedAddress.district || '',
+    location: {
+      latitude: Number(selectedAddress.latitude || 0),
+      longitude: Number(selectedAddress.longitude || 0),
+    },
+    isDefault: selectedAddress.savedAddressIndex === 0 || existingAddresses.length === 0,
+    lastUsedAt: new Date(),
+  };
+
+  const targetIndex = typeof selectedAddress.savedAddressIndex === 'number' ? selectedAddress.savedAddressIndex : -1;
+  if (targetIndex >= 0 && targetIndex < existingAddresses.length) {
+    existingAddresses[targetIndex] = nextAddress;
+  }
+
+  customer.savedAddresses = existingAddresses.length > 0 ? existingAddresses : [nextAddress];
+  customer.name = nextAddress.name || customer.name;
+  customer.deliveryPhoneNumber = nextAddress.phoneNumber || customer.deliveryPhoneNumber || customer.phoneNumber;
+  customer.address = nextAddress.address;
+  customer.city = nextAddress.city;
+  customer.pincode = nextAddress.pincode;
+  customer.district = nextAddress.district;
+  customer.location = {
+    latitude: nextAddress.location.latitude,
+    longitude: nextAddress.location.longitude,
+  };
+
+  await customer.save();
+};
+
+const buildDeliveryAddressSummary = (customer: any): string => {
+  const draft = getDraftAddress(customer);
+  const selected = {
+    name: draft.name || customer.name || '',
+    phoneNumber: draft.phoneNumber || customer.deliveryPhoneNumber || customer.phoneNumber || '',
+    flat: draft.flat || '',
+    address: draft.address || customer.address || '',
+    city: draft.city || customer.city || '',
+    pincode: draft.pincode || customer.pincode || '',
+    district: draft.district || customer.district || '',
+  };
+
+  return formatAddressSummary(selected);
+};
+
+const buildAddressChoiceRows = (customer: any) => {
+  const savedAddresses = getSavedDeliveryAddresses(customer);
+
+  return savedAddresses.map((address, index) => ({
+    id: `address_${index}`,
+    title: address.label || address.name || `Address ${index + 1}`,
+    description: formatSavedAddressDescription(address),
+  }));
+};
+
+const startNewDeliveryAddressFlow = async (customer: any, phoneNumber: string, restaurant: any): Promise<void> => {
+  await clearDraftAddress(customer);
+  customer.whatsappFlowState = 'checkout_address_name';
+  await customer.save();
+
+  await sendWhatsAppMessage(
+    phoneNumber,
+    'Please send the delivery name for this order.',
+    restaurant.whatsappPhoneNumberId,
+    restaurant.accessToken
+  );
+};
+
+const sendDeliveryOrderSummary = async (customer: any, phoneNumber: string, restaurant: any): Promise<void> => {
+  const cartItems = getCustomerCartItems(customer);
+  const itemsSummary = formatCartSummary(cartItems);
+  const total = getCartTotal(cartItems);
+  const addressSummary = buildDeliveryAddressSummary(customer);
+
+  await sendInteractiveButtons(
+    phoneNumber,
+    `🧾 *Order Summary (Delivery)*\n\n${itemsSummary}\n\n*Delivery details:*\n${addressSummary}\n\n-------------------\n*Total: ₹${total}*`,
+    [
+      { id: 'confirm_order', title: '✅ Confirm' },
+      { id: 'edit_cart', title: '✏️ Edit' }
+    ],
+    restaurant.whatsappPhoneNumberId,
+    restaurant.accessToken
+  );
+
+  customer.whatsappFlowState = 'checkout_confirm';
+  await customer.save();
+};
+
 const mapFlowCartItemsToWhatsappCart = (flowCartItems: any[], restaurant: any): any[] => {
   const allItems = restaurant.menu.flatMap((category: any) => category.items || []);
 
@@ -525,81 +707,37 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
             );
             return;
           }
-          await sendInteractiveButtons(
+          if (!restaurant.whatsappFlowId) {
+            await sendWhatsAppMessage(
+              customerPhone,
+              'Checkout is only available through the WhatsApp Flow right now. Please try again later.',
+              restaurant.whatsappPhoneNumberId,
+              restaurant.accessToken
+            );
+            return;
+          }
+
+          await sendFlowMessage(
             customerPhone,
-            '🚚 Delivery or Pickup?',
-            [
-              { id: 'mode_delivery', title: '🏠 Delivery' },
-              { id: 'mode_pickup', title: '🏃 Pickup' }
-            ],
+            'Choose your delivery address and complete checkout inside WhatsApp.',
+            'Open Checkout',
+            restaurant.whatsappFlowId,
+            restaurant._id.toString(),
             restaurant.whatsappPhoneNumberId,
-            restaurant.accessToken
+            restaurant.accessToken,
+            '🛒 Checkout',
+            undefined,
+            'navigate',
+            {
+              screen: 'CART',
+              data: {
+                customer_phone: customer.phoneNumber,
+                customer_name: customer.name,
+                cart_items: cartItems,
+              },
+            }
           );
-          customer.whatsappFlowState = 'checkout_mode';
-          await customer.save();
-          return;
-        }
-
-        if (buttonId === 'mode_delivery') {
-          await sendLocationRequest(
-            customerPhone,
-            '📍 Share your delivery location for accurate delivery.',
-            restaurant.whatsappPhoneNumberId,
-            restaurant.accessToken
-          );
-          customer.whatsappFlowState = 'checkout_location';
-          await customer.save();
-          return;
-        }
-
-        if (buttonId === 'mode_pickup') {
-          // Skip location, go to confirm
-          const cartItems = getCustomerCartItems(customer);
-          const itemsSummary = formatCartSummary(cartItems);
-          const total = getCartTotal(cartItems);
-
-          await sendInteractiveButtons(
-            customerPhone,
-            `🧾 *Order Summary (Pickup)*\n\n${itemsSummary}\n\n-------------------\n*Total: ₹${total}*`,
-            [
-              { id: 'confirm_order', title: '✅ Confirm' },
-              { id: 'edit_cart', title: '✏️ Edit' }
-            ],
-            restaurant.whatsappPhoneNumberId,
-            restaurant.accessToken
-          );
-          customer.whatsappFlowState = 'checkout_confirm';
-          await customer.save();
-          return;
-        }
-
-        if (buttonId === 'confirm_order') {
-          // Create real order
-          const cartItems = getCustomerCartItems(customer);
-          const total = getCartTotal(cartItems);
-          const order = new Order({
-            restaurantId: restaurant._id,
-            customerId: customer._id,
-            items: cartItems,
-            totalAmount: total,
-            status: 'pending',
-            source: 'whatsapp',
-            customerName: customer.name,
-            customerPhone: customer.phoneNumber,
-            paymentStatus: 'pending'
-          });
-          await order.save();
-
-          // Send payment message
-          await sendOrderDetailsMessage(
-            customerPhone,
-            order,
-            restaurant.whatsappPhoneNumberId,
-            restaurant.accessToken
-          );
-
-          customer.whatsappFlowState = 'idle';
-          setCustomerCartItems(customer, []);
+          customer.whatsappFlowState = 'menu_flow';
           await customer.save();
           return;
         }
@@ -618,6 +756,8 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
         if (buttonId === 'edit_cart' || buttonId === 'add_more') {
           if (!restaurant.whatsappFlowId) return;
+
+          await clearDraftAddress(customer);
 
           await sendFlowMessage(
             customerPhone,
@@ -687,10 +827,42 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
 
            if (flowIntent === 'checkout') {
               const cartItems = flowResponse.cart_items || []; // e.g. ["item_id_1", "item_id_2"]
+              const deliveryAddress = flowResponse.delivery_address || null;
               console.log(`[WhatsApp Webhook] User selected ${cartItems.length} items from flow.`);
               const processedCart = mapFlowCartItemsToWhatsappCart(cartItems, restaurant);
 
               if (processedCart.length > 0) {
+                  if (deliveryAddress) {
+                    customer.name = String(deliveryAddress.name || customer.name || '').trim() || customer.name;
+                    customer.deliveryPhoneNumber = String(deliveryAddress.phoneNumber || customer.deliveryPhoneNumber || customer.phoneNumber || '').trim();
+                    customer.address = String(deliveryAddress.address || customer.address || '').trim();
+                    customer.city = String(deliveryAddress.city || customer.city || '').trim();
+                    customer.pincode = String(deliveryAddress.pincode || customer.pincode || '').trim();
+                    customer.district = String(deliveryAddress.district || customer.district || '').trim();
+                    customer.location = {
+                      latitude: Number(deliveryAddress.latitude || 0),
+                      longitude: Number(deliveryAddress.longitude || 0),
+                    };
+                    customer.savedAddresses = [
+                      {
+                        label: String(deliveryAddress.label || deliveryAddress.name || 'Saved address').trim(),
+                        name: String(deliveryAddress.name || customer.name || '').trim(),
+                        phoneNumber: String(deliveryAddress.phoneNumber || customer.deliveryPhoneNumber || customer.phoneNumber || '').trim(),
+                        flat: String(deliveryAddress.flat || '').trim(),
+                        address: String(deliveryAddress.address || '').trim(),
+                        city: String(deliveryAddress.city || '').trim(),
+                        pincode: String(deliveryAddress.pincode || '').trim(),
+                        district: String(deliveryAddress.district || '').trim(),
+                        location: {
+                          latitude: Number(deliveryAddress.latitude || 0),
+                          longitude: Number(deliveryAddress.longitude || 0),
+                        },
+                        isDefault: true,
+                        lastUsedAt: new Date(),
+                      },
+                      ...(Array.isArray(customer.savedAddresses) ? customer.savedAddresses.slice(0, 9) : []),
+                    ];
+                  }
                   setCustomerCartItems(customer, processedCart);
                  await customer.save();
                  console.log(`[WhatsApp Webhook] Updated customer cart. Total items: ${processedCart.length}`);
@@ -698,9 +870,19 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
                   const cartSummary = formatCartSummary(getCustomerCartItems(customer));
                   const total = getCartTotal(getCustomerCartItems(customer));
 
+                  const deliveryAddressSummary = deliveryAddress
+                    ? [
+                        deliveryAddress.name ? `Name: ${deliveryAddress.name}` : '',
+                        deliveryAddress.phoneNumber ? `Phone: ${deliveryAddress.phoneNumber}` : '',
+                        deliveryAddress.flat ? `Flat: ${deliveryAddress.flat}` : '',
+                        deliveryAddress.address ? `Address: ${deliveryAddress.address}` : '',
+                        [deliveryAddress.city, deliveryAddress.pincode].filter(Boolean).join(' - '),
+                      ].filter(Boolean).join('\n')
+                    : '';
+
                 await sendInteractiveButtons(
                   customerPhone,
-                  `✅ Cart updated directly from the menu!\n\n🛒 *Your Cart*\n\n${cartSummary}\n\n-------------------\n*Total: ₹${total}*`,
+                  `✅ Order received from the Flow!\n\n🛒 *Your Cart*\n\n${cartSummary}\n\n${deliveryAddressSummary ? `*Delivery details:*\n${deliveryAddressSummary}\n\n` : ''}-------------------\n*Total: ₹${total}*`,
                   [
                     { id: 'view_menu', title: '📱 Return to Menu' },
                     { id: 'checkout', title: '🚀 Checkout' },
@@ -847,48 +1029,8 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
       }
     }
 
-    // Handle location messages
-    if (message.type === 'location' && message.location) {
-      customer.location = {
-        latitude: message.location.latitude,
-        longitude: message.location.longitude,
-      };
-      if (message.location.address) {
-        customer.address = message.location.address;
-      }
-      await customer.save();
-
-      if (customer.whatsappFlowState === 'checkout_location') {
-        const cartItems = getCustomerCartItems(customer);
-        const itemsSummary = formatCartSummary(cartItems);
-        const total = getCartTotal(cartItems);
-
-        await sendInteractiveButtons(
-          customerPhone,
-          `🧾 *Order Summary (Delivery)*\n\n${itemsSummary}\n\n-------------------\n*Total: ₹${total}*`,
-          [
-            { id: 'confirm_order', title: '✅ Confirm' },
-            { id: 'edit_cart', title: '✏️ Edit' }
-          ],
-          restaurant.whatsappPhoneNumberId,
-          restaurant.accessToken
-        );
-        customer.whatsappFlowState = 'checkout_confirm';
-        await customer.save();
-      } else {
-        await sendWhatsAppMessage(
-          customerPhone,
-          '📍 Location saved for future orders!',
-          restaurant.whatsappPhoneNumberId,
-          restaurant.accessToken
-        );
-      }
-      return;
-    }
-
     // Default: Handle text messages
     const messageText = message.text?.body?.trim().toLowerCase() || '';
-
     if (messageText === 'hi' || messageText === 'hello' || messageText === 'start') {
       await sendInteractiveButtons(
         customerPhone,

@@ -12,6 +12,7 @@ import MetaCallbackPage from './pages/auth/MetaCallbackPage';
 
 import DiscoverPage from './pages/customer/DiscoverPage';
 import StorePage from './pages/customer/StorePage';
+import StoreItemDetailsPage from './pages/customer/StoreItemDetailsPage';
 import OrderSuccessPage from './pages/customer/OrderSuccessPage';
 
 const App = () => {
@@ -36,8 +37,10 @@ const App = () => {
               {/* Customer Routes (slug-based per restaurant) */}
               <Route path="/" element={<DiscoverPage />} />
               <Route path="/:slug" element={<StorePage />} />
+              <Route path="/:slug/item/:itemId" element={<StoreItemDetailsPage />} />
               <Route path="/:slug/success" element={<OrderSuccessPage />} />
               <Route path="/restaurant/:slug" element={<StorePage />} />
+              <Route path="/restaurant/:slug/item/:itemId" element={<StoreItemDetailsPage />} />
               <Route path="/restaurant/:slug/success" element={<OrderSuccessPage />} />
             </Routes>
           </CartProvider>

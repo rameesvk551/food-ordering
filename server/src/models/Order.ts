@@ -9,6 +9,19 @@ export interface IOrderItem {
   portionLabel?: string;
 }
 
+export interface IOrderDeliveryAddress {
+  label?: string;
+  name: string;
+  phoneNumber: string;
+  flat: string;
+  address: string;
+  city: string;
+  pincode: string;
+  district?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'completed' | 'cancelled';
 export type OrderSource = 'whatsapp' | 'web';
 
@@ -24,6 +37,7 @@ export interface IOrder extends Document {
   deliveryMode?: 'delivery' | 'pickup';
   paymentMethod?: 'cod' | 'online';
   paymentStatus?: 'pending' | 'paid' | 'failed';
+  deliveryAddress?: IOrderDeliveryAddress;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -61,6 +75,18 @@ const orderSchema = new Schema<IOrder>(
     deliveryMode: { type: String, enum: ['delivery', 'pickup'] },
     paymentMethod: { type: String, enum: ['cod', 'online'] },
     paymentStatus: { type: String, enum: ['pending', 'paid', 'failed'], default: 'pending' },
+    deliveryAddress: {
+      label: { type: String, default: '' },
+      name: { type: String, default: '' },
+      phoneNumber: { type: String, default: '' },
+      flat: { type: String, default: '' },
+      address: { type: String, default: '' },
+      city: { type: String, default: '' },
+      pincode: { type: String, default: '' },
+      district: { type: String, default: '' },
+      latitude: { type: Number, default: 0 },
+      longitude: { type: Number, default: 0 },
+    },
   },
   { timestamps: true }
 );

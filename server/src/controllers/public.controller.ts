@@ -126,6 +126,66 @@ const getDefaultPrice = (item: {
 const getPrimaryItemImage = (item: { image?: string; images?: string[] }): string =>
   item.image || item.images?.[0] || '';
 
+const buildSavedAddressKey = (payload: {
+  address?: string;
+  pincode?: string;
+  city?: string;
+  district?: string;
+  phone?: string;
+}): string =>
+  [payload.address || '', payload.city || '', payload.pincode || '', payload.district || '', payload.phone || '']
+    .map((value) => String(value || '').trim().toLowerCase())
+    .join('|');
+
+const upsertSavedAddress = (
+  customer: any,
+  payload: { phone: string; name?: string; address?: string; pincode?: string; city?: string; district?: string }
+) => {
+  const hasAddressData = Boolean(payload.address || payload.pincode || payload.city || payload.district);
+  if (!hasAddressData) {
+    return;
+  }
+
+  const existingAddresses = Array.isArray(customer.savedAddresses) ? customer.savedAddresses : [];
+  const nextAddress = {
+    label: payload.name || customer.name || 'Saved address',
+    name: payload.name || customer.name || '',
+    phoneNumber: payload.phone || customer.phoneNumber || '',
+    flat: '',
+    address: payload.address || '',
+    city: payload.city || '',
+    pincode: payload.pincode || '',
+    district: payload.district || '',
+    location: {
+      latitude: Number(customer.location?.latitude || 0),
+      longitude: Number(customer.location?.longitude || 0),
+    },
+    isDefault: existingAddresses.length === 0,
+    lastUsedAt: new Date(),
+  };
+
+  const nextKey = buildSavedAddressKey({
+    address: nextAddress.address,
+    pincode: nextAddress.pincode,
+    city: nextAddress.city,
+    district: nextAddress.district,
+    phone: nextAddress.phoneNumber,
+  });
+
+  const remainingAddresses = existingAddresses.filter((entry: any) => {
+    const entryKey = buildSavedAddressKey({
+      address: entry.address,
+      pincode: entry.pincode,
+      city: entry.city,
+      district: entry.district,
+      phone: entry.phoneNumber,
+    });
+    return entryKey !== nextKey;
+  });
+
+  customer.savedAddresses = [nextAddress, ...remainingAddresses].slice(0, 10);
+};
+
 // Get all available menu items across all active restaurants
 export const getAllRestaurantMenus = async (_req: Request, res: Response): Promise<void> => {
   try {
@@ -217,6 +277,15 @@ export const placeWebOrder = async (req: Request, res: Response): Promise<void> 
       district,
     });
 
+    upsertSavedAddress(customer, {
+      phone: customerPhone,
+      name: customerName,
+      address,
+      pincode,
+      city,
+      district,
+    });
+
     // Validate items against menu
     const allMenuItems = restaurant.menu.flatMap((cat) => cat.items);
     let totalAmount = 0;
@@ -257,6 +326,16 @@ export const placeWebOrder = async (req: Request, res: Response): Promise<void> 
       source: 'web',
       customerName: customer.name,
       customerPhone: customer.phoneNumber,
+      deliveryMode: 'delivery',
+      deliveryAddress: {
+        name: customer.name,
+        phoneNumber: customer.deliveryPhoneNumber || customer.phoneNumber,
+        flat: '',
+        address: customer.address || address || '',
+        city: customer.city || city || '',
+        pincode: customer.pincode || pincode || '',
+        district: customer.district || district || '',
+      },
     });
     await order.save();
 
@@ -318,10 +397,12 @@ export const resolveCustomerSession = async (req: Request, res: Response): Promi
         id: customer._id,
         name: customer.name,
         phone: customer.phoneNumber,
+        deliveryPhoneNumber: customer.deliveryPhoneNumber,
         address: customer.address,
         pincode: customer.pincode,
         city: customer.city,
         district: customer.district,
+        savedAddresses: customer.savedAddresses || [],
       },
       cart: mapCustomerCartToWebCart(customer.whatsappCart || []),
       cartUpdatedAt: customer.cartUpdatedAt,
