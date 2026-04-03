@@ -368,6 +368,39 @@ const StorePage = () => {
 
         <StoreOverview restaurantName={restaurant.name} availableItemCount={availableItemCount} />
 
+        <div className="px-3 mt-3">
+          <div className="rounded-2xl border border-[#d9dfce] bg-[#f6f8ef] p-2">
+            <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide">
+              <button
+                type="button"
+                onClick={() => setSelectedCategory('all')}
+                className={`shrink-0 rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] transition-all ${
+                  selectedCategory === 'all'
+                    ? 'bg-[#466a55] border-[#466a55] text-[#f2f7ed]'
+                    : 'bg-white border-[#d1d9c8] text-[#4a5f50]'
+                }`}
+              >
+                All items
+              </button>
+
+              {restaurant.menu.map((category) => (
+                <button
+                  key={`menu-filter-${category._id}`}
+                  type="button"
+                  onClick={() => setSelectedCategory(category._id)}
+                  className={`shrink-0 rounded-full border px-4 py-2 text-[11px] font-bold uppercase tracking-[0.16em] transition-all ${
+                    selectedCategory === category._id
+                      ? 'bg-[#466a55] border-[#466a55] text-[#f2f7ed]'
+                      : 'bg-white border-[#d1d9c8] text-[#4a5f50]'
+                  }`}
+                >
+                  {category.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
         <div className="px-3 mt-2">
           <StoreMenuSection
             title={selectedCategoryName}
