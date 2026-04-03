@@ -858,6 +858,15 @@ export const handleWebhook = async (req: Request, res: Response): Promise<void> 
         restaurant.whatsappPhoneNumberId,
         restaurant.accessToken
       );
+
+      const browserMenuUrl = buildBrowserMenuUrl(restaurant.slug, customer.phoneNumber, customer.name);
+      await sendWhatsAppMessage(
+        customerPhone,
+        `🍽️ Menu options:\n1) WhatsApp Menu: tap *View Menu* button above\n2) Browser Menu (auto-login):\n${browserMenuUrl}`,
+        restaurant.whatsappPhoneNumberId,
+        restaurant.accessToken
+      );
+
       customer.whatsappFlowState = 'welcome';
       await customer.save();
     } else {
