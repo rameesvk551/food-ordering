@@ -220,11 +220,15 @@ const StorePage = () => {
     // Add gallery images first (priority 1)
     if (Array.isArray(restaurant.images) && restaurant.images.length > 0) {
       images.push(...restaurant.images);
+      console.log('[Gallery Debug] Using gallery images:', restaurant.images);
+    } else {
+      console.log('[Gallery Debug] No gallery images available');
     }
 
     // Add logo if gallery is empty (priority 2)
     if (images.length === 0 && restaurant.logo) {
       images.push(restaurant.logo);
+      console.log('[Gallery Debug] Fallback to logo:', restaurant.logo);
     }
 
     // Add menu item images if still empty (priority 3)
@@ -236,8 +240,10 @@ const StorePage = () => {
         .filter((img) => img && !images.includes(img));
 
       images.push(...menuImages);
+      console.log('[Gallery Debug] Fallback to menu images:', menuImages.slice(0, 2));
     }
 
+    console.log('[Gallery Debug] Final gallery array:', images.length, 'images');
     return images;
   }, [restaurant]);
 
