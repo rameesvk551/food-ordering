@@ -217,17 +217,17 @@ const StorePage = () => {
 
     const images: string[] = [];
 
-    // Add gallery images first
-    if (restaurant.images && restaurant.images.length > 0) {
+    // Add gallery images first (priority 1)
+    if (Array.isArray(restaurant.images) && restaurant.images.length > 0) {
       images.push(...restaurant.images);
     }
 
-    // Add logo if not already in images
-    if (restaurant.logo && !images.includes(restaurant.logo)) {
+    // Add logo if gallery is empty (priority 2)
+    if (images.length === 0 && restaurant.logo) {
       images.push(restaurant.logo);
     }
 
-    // Add menu item images if gallery is empty
+    // Add menu item images if still empty (priority 3)
     if (images.length === 0) {
       const menuImages = restaurant.menu
         .flatMap((category) => category.items)
