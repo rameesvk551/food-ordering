@@ -14,7 +14,7 @@ import {
   ImagePlus,
   Trash2,
 } from 'lucide-react';
-import { uploadImage } from '../../services/api';
+import { uploadImageWithProvider } from '../../services/api';
 
 interface RestaurantSettings {
   _id?: string;
@@ -148,7 +148,7 @@ const SettingsPage = () => {
     try {
       setUploadingImage(true);
       for (const file of Array.from(files)) {
-        const { url } = await uploadImage(file);
+        const { url } = await uploadImageWithProvider(file, 'cloudinary');
         setSettings(prev => ({
           ...prev,
           images: [...(prev.images || []), url],
@@ -169,7 +169,7 @@ const SettingsPage = () => {
 
     try {
       setUploadingImage(true);
-      const { url } = await uploadImage(file);
+      const { url } = await uploadImageWithProvider(file, 'cloudinary');
       setSettings(prev => ({
         ...prev,
         logo: url,

@@ -16,6 +16,16 @@ import type { DiscoverItem } from '../../components/customer/types';
 import { useToast } from '../../components/ui/Toast';
 import api from '../../services/api';
 
+interface DiscoverRestaurantCardItem {
+  id: string;
+  name: string;
+  slug: string;
+  image: string;
+  whatsappUrl: string;
+  topMenuNames: string[];
+  minPrice: number;
+}
+
 const DiscoverPage = () => {
   const navigate = useNavigate();
   const { showToast } = useToast();
@@ -23,6 +33,7 @@ const DiscoverPage = () => {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState('all');
   const [categoriesDrawerOpen, setCategoriesDrawerOpen] = useState(false);
+  const [showAllRestaurants, setShowAllRestaurants] = useState(false);
   const [items, setItems] = useState<DiscoverItem[]>([]);
 
   useEffect(() => {
@@ -66,22 +77,70 @@ const DiscoverPage = () => {
     ).sort((a, b) => a.localeCompare(b));
   }, [items]);
 
-  const handleOpenWhatsApp = (item: DiscoverItem) => {
-    if (!item.restaurant.whatsappUrl) {
+  const handleOpenRestaurantWhatsApp = (restaurant: DiscoverRestaurantCardItem) => {
+    if (!restaurant.whatsappUrl) {
       showToast('WhatsApp number is not configured for this restaurant.', 'error');
       return;
     }
 
     const text = encodeURIComponent(
-      `Hi ${item.restaurant.name}, I want to order ${item.name} (Rs.${item.price}).`
+      `Hi ${restaurant.name}, can you share your menu?`
     );
 
-    window.location.href = `${item.restaurant.whatsappUrl}?text=${text}`;
+    window.location.href = `${restaurant.whatsappUrl}?text=${text}`;
   };
 
   const visibleCategories = useMemo(() => ['all', ...categories].slice(0, 8), [categories]);
 
-  const visibleItems = useMemo(() => filteredItems.slice(0, 12), [filteredItems]);
+  const filteredRestaurants = useMemo<DiscoverRestaurantCardItem[]>(() => {
+    const grouped = new Map<string, DiscoverRestaurantCardItem & { itemNames: Set<string> }>();
+
+    for (const item of filteredItems) {
+      const existing = grouped.get(item.restaurant.id);
+      const image = item.restaurant.coverImage || item.restaurant.logo || item.image || '';
+
+      if (!existing) {
+        grouped.set(item.restaurant.id, {
+          id: item.restaurant.id,
+          name: item.restaurant.name,
+          slug: item.restaurant.slug,
+          image,
+          whatsappUrl: item.restaurant.whatsappUrl,
+          topMenuNames: [],
+          itemNames: new Set(item.name ? [item.name] : []),
+          minPrice: item.price,
+        });
+        continue;
+      }
+
+      if ((!existing.image || existing.image.length === 0) && image) {
+        existing.image = image;
+      }
+      if (item.name) {
+        existing.itemNames.add(item.name);
+      }
+      if (item.price < existing.minPrice) {
+        existing.minPrice = item.price;
+      }
+    }
+
+    return Array.from(grouped.values())
+      .map((restaurant) => ({
+        id: restaurant.id,
+        name: restaurant.name,
+        slug: restaurant.slug,
+        image: restaurant.image,
+        whatsappUrl: restaurant.whatsappUrl,
+        topMenuNames: Array.from(restaurant.itemNames).slice(0, 2),
+        minPrice: Number.isFinite(restaurant.minPrice) ? restaurant.minPrice : 0,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredItems]);
+
+  const visibleRestaurants = useMemo(
+    () => (showAllRestaurants ? filteredRestaurants : filteredRestaurants.slice(0, 3)),
+    [filteredRestaurants, showAllRestaurants]
+  );
 
   const categoryTiles = useMemo(() => {
     return categories.map((category) => {
@@ -147,7 +206,7 @@ const DiscoverPage = () => {
                   <div
                     className={`w-16 h-16 rounded-2xl border-2 p-1 transition-all ${
                       isActive
-                        ? 'border-[#f0ab2c] shadow-[0_10px_16px_rgba(240,171,44,0.28)]'
+                        ? 'border-[#44b749] shadow-[0_10px_16px_rgba(68,183,73,0.24)]'
                         : 'border-[#d9e1e5]'
                     }`}
                   >
@@ -173,33 +232,18 @@ const DiscoverPage = () => {
           </div>
         </section>
 
-        <section className="mt-5">
-          <div className="flex gap-2 overflow-x-auto scrollbar-hide pb-1">
-            {visibleCategories.map((category) => {
-              const active = activeCategory === category;
-
-              return (
-                <button
-                  key={`chip-${category}`}
-                  type="button"
-                  onClick={() => setActiveCategory(category)}
-                  className={`px-4 py-2 rounded-full text-[12px] font-semibold border whitespace-nowrap ${
-                    active
-                      ? 'bg-[#f3ae30] border-[#f3ae30] text-[#1c1b19]'
-                      : 'bg-white border-[#e2e6ea] text-[#6d737c]'
-                  }`}
-                >
-                  {category === 'all' ? 'All Restaurants' : category}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
         <section className="mt-6">
           <div className="flex items-center justify-between">
             <h2 className="text-[#1f2228] text-[20px] font-bold leading-none">Open Restaurants</h2>
-            <button type="button" className="text-[#7c828a] font-semibold text-[16px]">See All</button>
+            {filteredRestaurants.length > 3 ? (
+              <button
+                type="button"
+                onClick={() => setShowAllRestaurants((prev) => !prev)}
+                className="text-[#7c828a] font-semibold text-[16px]"
+              >
+                {showAllRestaurants ? 'Show Less' : 'Show All'}
+              </button>
+            ) : null}
           </div>
 
           {loading ? (
@@ -214,11 +258,11 @@ const DiscoverPage = () => {
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-4 mt-4">
-              {visibleItems.map((item, index) => (
+              {visibleRestaurants.map((restaurant, index) => (
                 <button
-                  key={item.id}
+                  key={restaurant.id}
                   type="button"
-                  onClick={() => navigate(`/${item.restaurant.slug}`)}
+                  onClick={() => navigate(`/${restaurant.slug}`)}
                   className="text-left rounded-2xl border border-[#e8edf0] bg-white p-3 relative"
                 >
                   <Heart
@@ -228,12 +272,16 @@ const DiscoverPage = () => {
                   />
 
                   <img
-                    src={item.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'}
-                    alt={item.name}
+                    src={restaurant.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=300&q=80'}
+                    alt={restaurant.name}
                     className="w-24 h-24 rounded-full object-cover mx-auto"
                   />
 
-                  <h3 className="mt-3 text-[#1f2228] text-[16px] font-bold leading-tight truncate">{item.name}</h3>
+                  <h3 className="mt-3 text-[#1f2228] text-[16px] font-bold leading-tight truncate">{restaurant.name}</h3>
+
+                  <p className="mt-1 text-[#7f8790] text-[12px] truncate">
+                    {restaurant.topMenuNames.join(' • ') || 'Popular menu available'}
+                  </p>
 
                   <div className="mt-1 flex items-center gap-3 text-[#7f8790] text-[13px]">
                     <span>20min</span>
@@ -244,12 +292,12 @@ const DiscoverPage = () => {
                   </div>
 
                   <div className="mt-2 flex items-center justify-between">
-                    <span className="text-[#1f2228] text-[18px] font-extrabold">${item.price}</span>
+                    <span className="text-[#1f2228] text-[18px] font-extrabold">From Rs.{restaurant.minPrice}</span>
                     <button
                       type="button"
                       onClick={(event) => {
                         event.stopPropagation();
-                        handleOpenWhatsApp(item);
+                        handleOpenRestaurantWhatsApp(restaurant);
                       }}
                       className="w-9 h-9 rounded-xl bg-[#44b749] text-white flex items-center justify-center"
                     >

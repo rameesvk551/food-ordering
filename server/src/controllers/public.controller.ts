@@ -4,6 +4,21 @@ import { Customer } from '../models/Customer';
 import { Order } from '../models/Order';
 import { sendWhatsAppMessage } from '../services/whatsapp.service';
 
+const getPublicBaseUrl = (req: Request): string => {
+  const forwardedProto = String(req.headers['x-forwarded-proto'] || '').split(',')[0].trim();
+  const protocol = forwardedProto || req.protocol || 'https';
+  const host = req.get('host') || 'api.food.wayon.in';
+  return `${protocol}://${host}`;
+};
+
+const toAbsoluteImageUrl = (value: string | undefined, baseUrl: string): string => {
+  if (!value) return '';
+  if (/^https?:\/\//i.test(value)) return value;
+  if (value.startsWith('//')) return `https:${value}`;
+  if (value.startsWith('/')) return `${baseUrl}${value}`;
+  return value;
+};
+
 const sanitizePhoneNumber = (phoneNumber: string): string => phoneNumber.replace(/\D/g, '');
 
 const buildPhoneFilter = (phoneNumber: string) => {
@@ -189,8 +204,10 @@ const upsertSavedAddress = (
 // Get all available menu items across all active restaurants
 export const getAllRestaurantMenus = async (_req: Request, res: Response): Promise<void> => {
   try {
+    const req = _req;
+    const baseUrl = getPublicBaseUrl(req);
     const restaurants = await Restaurant.find({ isActive: true }).select(
-      'name slug phoneNumber menu'
+      'name slug phoneNumber logo images menu'
     );
 
     const items = restaurants.flatMap((restaurant) => {
@@ -205,8 +222,10 @@ export const getAllRestaurantMenus = async (_req: Request, res: Response): Promi
             name: item.name,
             description: item.description,
             price: getDefaultPrice(item),
-            image: getPrimaryItemImage(item),
-            images: item.images || (item.image ? [item.image] : []),
+            image: toAbsoluteImageUrl(getPrimaryItemImage(item), baseUrl),
+            images: (item.images || (item.image ? [item.image] : [])).map((image) =>
+              toAbsoluteImageUrl(image, baseUrl)
+            ),
             portionOptions: item.portionOptions || [],
             category: category.name,
             restaurant: {
@@ -214,6 +233,14 @@ export const getAllRestaurantMenus = async (_req: Request, res: Response): Promi
               name: restaurant.name,
               slug: restaurant.slug,
               phoneNumber: restaurant.phoneNumber,
+              logo: toAbsoluteImageUrl(restaurant.logo || '', baseUrl),
+              coverImage: toAbsoluteImageUrl(
+                restaurant.images?.[0]
+                || restaurant.logo
+                || getPrimaryItemImage(item)
+                || '',
+                baseUrl
+              ),
               whatsappUrl,
             },
           }))
@@ -227,6 +254,14 @@ export const getAllRestaurantMenus = async (_req: Request, res: Response): Promi
         name: restaurant.name,
         slug: restaurant.slug,
         phoneNumber: restaurant.phoneNumber,
+        logo: toAbsoluteImageUrl(restaurant.logo || '', baseUrl),
+        coverImage: toAbsoluteImageUrl(
+          restaurant.images?.[0]
+          || restaurant.logo
+          || restaurant.menu.flatMap((category) => category.items).map((item) => getPrimaryItemImage(item)).find(Boolean)
+          || '',
+          baseUrl
+        ),
         whatsappUrl: restaurant.phoneNumber
           ? `https://wa.me/${sanitizePhoneNumber(restaurant.phoneNumber)}`
           : '',
@@ -241,8 +276,9 @@ export const getAllRestaurantMenus = async (_req: Request, res: Response): Promi
 export const getStoreBySlug = async (req: Request, res: Response): Promise<void> => {
   try {
     const { slug } = req.params;
+    const baseUrl = getPublicBaseUrl(req);
     const restaurant = await Restaurant.findOne({ slug, isActive: true }).select(
-      'name slug phoneNumber menu'
+      'name slug phoneNumber description images logo address city state zipCode latitude longitude cuisineTypes businessHours minDeliveryTime maxDeliveryTime minOrderValue deliveryCharges menu'
     );
 
     if (!restaurant) {
@@ -250,7 +286,32 @@ export const getStoreBySlug = async (req: Request, res: Response): Promise<void>
       return;
     }
 
-    res.json({ restaurant });
+    const normalizedRestaurant = restaurant.toObject();
+
+    normalizedRestaurant.logo = toAbsoluteImageUrl(normalizedRestaurant.logo || '', baseUrl);
+    normalizedRestaurant.images = (normalizedRestaurant.images || []).map((image: string) =>
+      toAbsoluteImageUrl(image, baseUrl)
+    );
+    normalizedRestaurant.menu = (normalizedRestaurant.menu || []).map((category: any) => ({
+      ...category,
+      image: toAbsoluteImageUrl(category.image || '', baseUrl),
+      items: (category.items || []).map((item: any) => ({
+        ...item,
+        image: toAbsoluteImageUrl(item.image || '', baseUrl),
+        images: (item.images || []).map((image: string) => toAbsoluteImageUrl(image, baseUrl)),
+      })),
+    }));
+
+    if (!normalizedRestaurant.logo) {
+      normalizedRestaurant.logo = normalizedRestaurant.images?.[0]
+        || normalizedRestaurant.menu
+          ?.flatMap((category: any) => category.items || [])
+          .map((item: any) => item.image || item.images?.[0])
+          .find(Boolean)
+        || '';
+    }
+
+    res.json({ restaurant: normalizedRestaurant });
   } catch (error) {
     res.status(500).json({ error: 'Failed to fetch store.' });
   }

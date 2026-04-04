@@ -36,4 +36,17 @@ export const uploadImage = async (file: File): Promise<{ url: string; publicId: 
   return response.data;
 };
 
+export const uploadImageWithProvider = async (
+  file: File,
+  provider?: 'cloudinary'
+): Promise<{ url: string; publicId: string }> => {
+  const formData = new FormData();
+  formData.append('image', file);
+  const response = await api.post('/upload', formData, {
+    params: provider ? { provider } : undefined,
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return response.data;
+};
+
 export default api;

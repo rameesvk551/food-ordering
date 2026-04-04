@@ -213,7 +213,16 @@ const StorePage = () => {
   }, [restaurant, selectedCategory]);
 
   const galleryImages = useMemo(() => {
-    if (!restaurant) return [];
+    if (!restaurant) {
+      console.log('[Gallery Debug] No restaurant data yet');
+      return [];
+    }
+
+    console.log('[Gallery Debug] Restaurant data:', {
+      hasImages: !!restaurant.images,
+      imagesLength: restaurant.images?.length || 0,
+      hasLogo: !!restaurant.logo,
+    });
 
     const images: string[] = [];
 
