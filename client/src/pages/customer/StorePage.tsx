@@ -8,6 +8,7 @@ import StoreMenuSection from '../../components/customer/store/StoreMenuSection';
 import StoreOverview from '../../components/customer/store/StoreOverview';
 import StoreStickyCartBar from '../../components/customer/store/StoreStickyCartBar';
 import StoreTopBar from '../../components/customer/store/StoreTopBar';
+import GallerySlider from '../../components/ui/GallerySlider';
 import type {
   CustomerInfo,
   DisplayMenuItem,
@@ -211,14 +212,33 @@ const StorePage = () => {
     return restaurant.menu.find((category) => category._id === selectedCategory)?.name || 'Popular Picks';
   }, [restaurant, selectedCategory]);
 
-  const heroImage = useMemo(() => {
-    if (!restaurant) return '';
+  const galleryImages = useMemo(() => {
+    if (!restaurant) return [];
 
-    const withImage = restaurant.menu
-      .flatMap((category) => category.items)
-      .find((item) => item.isAvailable && getItemDisplayImage(item));
+    const images: string[] = [];
 
-    return withImage ? getItemDisplayImage(withImage) : '';
+    // Add gallery images first
+    if (restaurant.images && restaurant.images.length > 0) {
+      images.push(...restaurant.images);
+    }
+
+    // Add logo if not already in images
+    if (restaurant.logo && !images.includes(restaurant.logo)) {
+      images.push(restaurant.logo);
+    }
+
+    // Add menu item images if gallery is empty
+    if (images.length === 0) {
+      const menuImages = restaurant.menu
+        .flatMap((category) => category.items)
+        .filter((item) => item.isAvailable)
+        .map((item) => getItemDisplayImage(item))
+        .filter((img) => img && !images.includes(img));
+
+      images.push(...menuImages);
+    }
+
+    return images;
   }, [restaurant]);
 
   const addItemWithPortion = (item: MenuItem, portion: MenuPortionOption) => {
@@ -349,11 +369,12 @@ const StorePage = () => {
     <div className="olive-store-shell min-h-screen px-2 py-3 sm:px-4">
       <div className="olive-store-device mx-auto pb-24">
         <div className="olive-store-hero">
-          {heroImage ? (
-            <img src={heroImage} alt={restaurant.name} className="h-full w-full object-cover" />
-          ) : (
-            <div className="h-full w-full bg-gradient-to-b from-[#5d7e67] to-[#385442]" />
-          )}
+          <GallerySlider 
+            images={galleryImages} 
+            alt={restaurant.name}
+            autoPlay={true}
+            autoPlayInterval={4000}
+          />
 
           <div className="olive-store-hero-overlay" />
           <div className="relative z-10">
