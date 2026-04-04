@@ -4,6 +4,8 @@ export interface DiscoverRestaurant {
   slug: string;
   phoneNumber: string;
   whatsappUrl: string;
+  logo?: string;
+  coverImage?: string;
 }
 
 export interface DiscoverItem {
@@ -67,6 +69,21 @@ export interface Restaurant {
   name: string;
   slug: string;
   phoneNumber: string;
+  description?: string;
+  images?: string[];
+  logo?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  latitude?: number;
+  longitude?: number;
+  cuisineTypes?: string[];
+  businessHours?: Record<string, { open: string; close: string; isClosed: boolean }>;
+  minDeliveryTime?: number;
+  maxDeliveryTime?: number;
+  minOrderValue?: number;
+  deliveryCharges?: number;
   menu: MenuCategory[];
 }
 
